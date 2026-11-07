@@ -1,1 +1,3 @@
 CLOCKED_API_KEY=
+# Dev only: set to exactly 1 to disable the daily caps locally (evals, snapshots). Never set it in production.
+# ALLOW_UNLIMITED_LOCAL=1

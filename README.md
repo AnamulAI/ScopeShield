@@ -84,7 +84,7 @@ Notes:
 - If the project name is taken, pick another one and use it in the secret and deploy commands.
 - Secrets are read by deployments created after you set them, so run the deploy command again after `secret put`.
 - The `RATE_LIMIT` KV binding is required on any non-localhost host: the proxy refuses live requests without it. It enforces 80 Clocked calls per IP and 2,000 per site per UTC day.
-- **Counting is approximate by design.** The free KV plan limits writes per day, so the proxy reads the counters on every call but writes only with probability 1/5, adding 5 (for both the per-IP and the site counter). The expected count is right with about a fifth of the writes; individual visitors can overshoot a cap by a few calls, and KV itself is not atomic. If a KV write fails, the proxy refuses the request rather than allowing unlimited use; if a KV read fails, it lets the request through.
+- **Counting is approximate by design.** The free KV plan limits writes per day, so the proxy reads the counters on every call but writes only with probability 1/5, adding 5 (for both the per-IP and the site counter). The expected count is right with about a fifth of the writes; individual visitors can overshoot a cap by a few calls, and KV itself is not atomic and reads can be stale for a while, so increments can be lost and the real cap is looser than the nominal one (in a local test with the caps on, the first refusal came after about 155 calls, not 80). If a KV write fails, the proxy refuses the request rather than allowing unlimited use; if a KV read fails, it lets the request through.
 - Demo mode needs no key and makes no API calls.
 
 ### Path B: Git-connected Pages (alternative)
@@ -98,6 +98,7 @@ Notes:
 
 ```bash
 cp .dev.vars.example .dev.vars    # then put your key in .dev.vars (never commit it)
+                                  # optional, local evals only: add ALLOW_UNLIMITED_LOCAL=1 to switch off the daily caps
 npm ci
 npm run pages:dev                 # http://localhost:8788 (builds, then runs Pages + Functions)
 ```

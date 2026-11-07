@@ -114,22 +114,59 @@ describe("onRequestPost", () => {
     expect(err.mock.calls.length).toBeLessThanOrEqual(1);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
-  it("allows a missing binding only on localhost, and forwards the key server-side without echoing it", async () => {
+  it("forwards the key server-side without echoing it (flag on, no KV)", async () => {
     const up = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200, headers: { "x-clocked-credits": "1" } }));
-    const r = await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "secret-test-value" }));
+    const r = await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "secret-test-value", ALLOW_UNLIMITED_LOCAL: "1" }));
     expect(r.status).toBe(200);
     expect(r.headers.get("x-clocked-credits")).toBe("1");
     const sent = up.mock.calls[0][1] as RequestInit;
     expect((sent.headers as Record<string, string>).authorization).toBe("Bearer secret-test-value");
     expect(JSON.stringify([...r.headers])).not.toContain("secret-test-value");
   });
-  it("does not apply daily caps on localhost (dev evals), even with a full counter", async () => {
+  it("flag OFF: caps are enforced even on localhost", async () => {
+    const k = kv();
+    const today = new Date().toISOString().slice(0, 10);
+    k.store.set(`rl:ip:${today}:unknown`, String(IP_DAILY_CAP * 2));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    const r = await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k }));
+    expect(r.status).toBe(429);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+  it("flag OFF and no KV binding: refused even on localhost (never fails open)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const r = await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "x" }));
+    expect(r.status).toBe(503);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+  it("flag ON via env skips the caps, even with a full counter", async () => {
     const k = kv();
     const today = new Date().toISOString().slice(0, 10);
     k.store.set(`rl:ip:${today}:unknown`, String(IP_DAILY_CAP * 2));
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
-    expect((await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k }))).status).toBe(200);
-    expect((await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k }))).status).toBe(429);
+    expect((await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k, ALLOW_UNLIMITED_LOCAL: "1" }))).status).toBe(200);
+  });
+  it("only the exact string \"1\" counts as the flag", async () => {
+    for (const v of ["0", "true", "yes", "", " 1", "11"]) {
+      const k = kv();
+      const today = new Date().toISOString().slice(0, 10);
+      k.store.set(`rl:ip:${today}:unknown`, String(IP_DAILY_CAP * 2));
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+      const r = await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k, ALLOW_UNLIMITED_LOCAL: v }));
+      expect(r.status, `flag "${v}"`).toBe(429);
+      fetchSpy.mockRestore();
+    }
+  });
+  it("ignores anything the caller controls: headers, query string, hostname", async () => {
+    const k = kv();
+    const today = new Date().toISOString().slice(0, 10);
+    k.store.set(`rl:ip:${today}:unknown`, String(IP_DAILY_CAP * 2));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    const sneaky = { "x-allow-unlimited-local": "1", allow_unlimited_local: "1", "x-forwarded-host": "localhost" };
+    for (const url of ["http://localhost:8788/api/clocked/decide?ALLOW_UNLIMITED_LOCAL=1", "http://127.0.0.1:8788/api/clocked/decide", "https://scopeshield.pages.dev/api/clocked/decide?ALLOW_UNLIMITED_LOCAL=1"]) {
+      const r = await onRequestPost(ctx(url, { CLOCKED_API_KEY: "x", RATE_LIMIT: k }, { headers: sneaky }));
+      expect(r.status, url).toBe(429);
+    }
   });
   it("rejects oversized bodies", async () => {
     const big = new Request("https://scopeshield.pages.dev/api/clocked/decide", { method: "POST", headers: { "idempotency-key": "k" }, body: "x".repeat(200 * 1024 + 1) });

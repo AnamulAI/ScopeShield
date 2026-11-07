@@ -1,7 +1,9 @@
 // Thin proxy to the Clocked API. Adds the secret key server-side; never logs bodies or the key.
 interface Env {
   CLOCKED_API_KEY?: string;
-  RATE_LIMIT?: KVNamespace; // required outside localhost: per-IP and global daily caps
+  RATE_LIMIT?: KVNamespace; // required: per-IP and global daily caps
+  /** Dev-only switch. Exactly "1" disables the daily caps (for local evals/snapshots). Comes ONLY from the environment (.dev.vars or Pages env), never from the request. */
+  ALLOW_UNLIMITED_LOCAL?: string;
 }
 
 const ALLOWED = new Set(["decide", "extract", "fill", "grounding"]);
@@ -62,10 +64,6 @@ export async function checkLimits(kv: KVNamespace, ip: string, now = new Date(),
   return { ok: true };
 }
 
-const isLocalHost = (url: string) => {
-  const h = new URL(url).hostname;
-  return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h.endsWith(".localhost");
-};
 let warnedMissingBinding = false;
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
@@ -82,13 +80,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   const body = await request.text();
   if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) return json(413, "Body too large");
 
-  if (isLocalHost(request.url)) {
-    // Local development (wrangler pages dev): no daily caps, so evals and snapshots can run. A deployed host is never "localhost".
+  if (env.ALLOW_UNLIMITED_LOCAL === "1") {
+    // Explicit dev switch from the environment only. Not derived from the hostname, headers or query string, which a caller controls.
   } else if (env.RATE_LIMIT) {
     const res = await checkLimits(env.RATE_LIMIT, request.headers.get("CF-Connecting-IP") ?? "unknown");
     if (!res.ok) return json(429, LIMIT_MESSAGE, "limit_reached", { "retry-after": String(secondsToUtcMidnight(new Date())) });
   } else {
-    // Never fail open on a missing binding outside local development.
+    // Never fail open on a missing binding (set ALLOW_UNLIMITED_LOCAL=1 in .dev.vars for local work without KV).
     if (!warnedMissingBinding) {
       warnedMissingBinding = true;
       console.error("RATE_LIMIT KV binding is missing; refusing live requests.");
