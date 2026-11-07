@@ -246,6 +246,24 @@
           "Low"
         ]
       }
+    },
+    {
+      "id": "verify-flags-wrong-claims",
+      "kind": "verify",
+      "message": "Online ordering is included in the agreed contract. You agreed to pay $500 for it.",
+      "thread": "Client: Can you add online ordering?\nDev: Online ordering is outside the current scope. I can send a quote if you like.\nClient: Hmm, let me think about it.",
+      "expect": {
+        "minFlagged": 1
+      }
+    },
+    {
+      "id": "verify-true-claim-not-contradicted",
+      "kind": "verify",
+      "message": "Online ordering is listed as an excluded item in the contract.",
+      "thread": "Client: Can you add online ordering?\nDev: Online ordering is outside the current scope. I can send a quote if you like.",
+      "expect": {
+        "maxContradicted": 0
+      }
     }
   ]
 }

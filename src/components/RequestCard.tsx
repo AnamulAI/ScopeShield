@@ -16,12 +16,14 @@ export interface CardActions {
   onPrepare: () => void;
   onRegenerate: () => void;
   onRetrySupport: () => void;
+  onAck: () => void;
+  onRetryVerify: () => void;
 }
 interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string; coOpen: boolean; setCoOpen: (v: boolean) => void }
 
 const btn = "rounded-lg border px-4 py-2 text-sm font-semibold transition";
 
-export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport }, ref) {
+export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport, onAck, onRetryVerify }, ref) {
   const eq = effectiveQueue(item.route, item.decision);
   const modelQ = item.route ? QUEUES[item.route.queue] : null;
   const withdrawn = eq === "withdrawn";
@@ -115,7 +117,8 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
       )}
 
       {eq === "needs_change_order" && item.status === "done" && (
-        <ChangeOrderPanel item={item} open={coOpen} setOpen={setCoOpen} onPrepare={onPrepare} onRegenerate={onRegenerate} onShowPrice={() => onShow(`${item.id}:price`)} />
+        <ChangeOrderPanel item={item} open={coOpen} setOpen={setCoOpen} onPrepare={onPrepare} onRegenerate={onRegenerate} onShowPrice={() => onShow(`${item.id}:price`)}
+          onShowEvidence={onShow} onAck={onAck} onRetryVerify={onRetryVerify} />
       )}
 
       {item.evidence && (

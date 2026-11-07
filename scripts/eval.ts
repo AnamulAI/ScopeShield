@@ -3,14 +3,17 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createClockedClient } from "../src/lib/clocked";
 import { inventedAmounts } from "../src/lib/checks";
+import type { VerifyResponse } from "../src/lib/clocked-types";
 import { decideRequest, extractMessage, fillChangeOrder } from "../src/lib/pipeline";
+import { buildVerifyRequest } from "../src/lib/prompts";
+import { toVerifiedClaims, countVerdicts } from "../src/lib/verify";
 import { parseThread, sliceCp } from "../src/lib/thread";
 
 const BASE = process.env.EVAL_BASE_URL ?? "http://localhost:8788";
 const golden = JSON.parse(readFileSync("evals/golden.json", "utf8"));
 const client = createClockedClient({ baseUrl: BASE });
-const credits = { extract: 0, decide: 0, fill: 0 };
-const calls = { extract: 0, decide: 0, fill: 0 };
+const credits = { extract: 0, decide: 0, fill: 0, verify: 0 };
+const calls = { extract: 0, decide: 0, fill: 0, verify: 0 };
 const track = (ep: keyof typeof credits, u: { credits: number } | null) => ((credits[ep] += u?.credits ?? 0), calls[ep]++);
 
 interface Result { id: string; kind: string; pass: boolean; detail: string }
@@ -41,6 +44,16 @@ async function runCase(c: any): Promise<Result> {
       const thread = `Client: ${c.message}`;
       for (const r of requests) if (!r.evidence || sliceCp(thread, r.evidence.start, r.evidence.end) !== r.text) fails.push(`evidence offset mismatch for "${r.text}"`);
       return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `${requests.length} item(s): ${requests.map((r) => `"${r.text}"`).join(", ")}` };
+    }
+    if (c.kind === "verify") {
+      // The wrong-claim messages are TEST-ONLY strings; they are never shown in the UI.
+      const { data, usage } = await client.call<VerifyResponse>("grounding", buildVerifyRequest(golden.contract, c.thread, c.message));
+      track("verify", usage);
+      const n = countVerdicts(toVerifiedClaims(data.claims, { contract: golden.contract, thread: c.thread }, sliceCp));
+      const fails: string[] = [];
+      if (c.expect.minFlagged !== undefined && n.contradicted + n.notStated < c.expect.minFlagged) fails.push(`flagged ${n.contradicted + n.notStated} claims, expected at least ${c.expect.minFlagged}`);
+      if (c.expect.maxContradicted !== undefined && n.contradicted > c.expect.maxContradicted) fails.push(`${n.contradicted} contradicted, expected at most ${c.expect.maxContradicted}`);
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `supported ${n.supported}, not stated ${n.notStated}, contradicted ${n.contradicted}` };
     }
     // fill
     const co = await fillChangeOrder(client, { contract: golden.contract, thread: c.thread, clientName: "Client" }, c.request, false, { effortScore: c.effortScore ?? 2, agreed: c.agreed ?? false });
@@ -74,7 +87,7 @@ async function runCase(c: any): Promise<Result> {
 
 const results = await Promise.all(golden.cases.map(runCase)); // client caps concurrency at 3
 const passed = results.filter((r) => r.pass).length;
-const total = credits.extract + credits.decide + credits.fill;
+const total = credits.extract + credits.decide + credits.fill + credits.verify;
 const date = new Date().toISOString().slice(0, 10);
 const esc = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
 
@@ -96,7 +109,8 @@ const md = [
   `| extract | ${calls.extract} | ${credits.extract} |`,
   `| decide | ${calls.decide} | ${credits.decide} |`,
   `| fill | ${calls.fill} | ${credits.fill} |`,
-  `| **Total** | ${calls.extract + calls.decide + calls.fill} | **${total}** |`,
+  `| verify | ${calls.verify} | ${credits.verify} |`,
+  `| **Total** | ${calls.extract + calls.decide + calls.fill + calls.verify} | **${total}** |`,
   ``,
 ].join("\n") + "\n" + readFileSync("docs/eval-notes.md", "utf8");
 writeFileSync("docs/eval-results.md", md);

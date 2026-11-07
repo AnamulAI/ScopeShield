@@ -12,12 +12,13 @@ interface Props {
   onRetryItem: (id: string) => void; onRetryMessage: (idx: number) => void;
   onDecide: (id: string, d: Decision | undefined) => void; onPrepare: (id: string) => void; onPrepareAll: () => void;
   onRegenerate: (id: string) => void; onRetrySupport: (id: string) => void;
+  onAck: (id: string) => void; onRetryVerify: (id: string) => void;
   recorded?: boolean; onSwitchDemo?: () => void;
   /** Demo only: shown when the current sample has no Ask me item. */
   askHint?: { onOpen: () => void };
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, recorded, onSwitchDemo, askHint }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, recorded, onSwitchDemo, askHint }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
@@ -58,7 +59,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
     <RequestCard key={item.id} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
       coOpen={openCO.has(item.id)} setCoOpen={(v) => setCoOpen(item.id, v)}
       onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => { if (d === "extra") setCoOpen(item.id, true); onDecide(item.id, d); }}
-      onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} />
+      onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} onAck={() => onAck(item.id)} onRetryVerify={() => onRetryVerify(item.id)} />
   );
   const preparable = (groups.get("needs_change_order") ?? []).filter((i) => i.status === "done" && (!i.changeOrder || i.changeOrder.status === "failed"));
   return (
@@ -139,12 +140,12 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
 
         <aside className={`${tab === "thread" ? "" : "hidden"} lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1`}>
           <h3 className="mb-2 font-display text-lg">Thread</h3>
-          <ThreadView analysis={analysis} activeId={activeId} onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} />
+          <ThreadView analysis={analysis} openIds={openCO} activeId={activeId} onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} />
         </aside>
       </div>
 
       <footer className="border-t border-line pt-3 text-xs text-muted">
-        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, change orders {analysis.usage.fill.credits}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
+        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, change orders {analysis.usage.fill.credits}, verify {analysis.usage.verify?.credits ?? 0}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
       </footer>
     </section>
   );

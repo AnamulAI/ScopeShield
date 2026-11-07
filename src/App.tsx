@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClockedError, createClockedClient, type ClockedClient } from "./lib/clocked";
 import type { Snapshot } from "./lib/demo";
-import { analyze, runDecide, runFill, runMessage, runSupport, type Analysis } from "./lib/pipeline";
+import { analyze, runDecide, runFill, runMessage, runSupport, runVerify, type Analysis } from "./lib/pipeline";
 import { effectiveQueue, type Decision } from "./lib/routing";
 import { InputPanel, type Inputs } from "./components/InputPanel";
 import { HowItWorks } from "./components/HowItWorks";
@@ -48,6 +48,7 @@ export default function App() {
     fetch(`/demo/${demoId}.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((s: Snapshot) => {
       if (cancelled) return;
       s.analysis.usage.price ??= { calls: 0, credits: 0 };
+      s.analysis.usage.verify ??= { calls: 0, credits: 0 };
       live.current = s.analysis;
       ran.current = s.inputs;
       setSnap(s);
@@ -98,6 +99,8 @@ export default function App() {
     const todo = a.items.filter((x) => effectiveQueue(x.route, x.decision) === "needs_change_order" && x.status === "done" && (!x.changeOrder || x.changeOrder.status === "failed"));
     return direct((an, i) => Promise.all(todo.map((x) => runFill(an, x, i, client, render))).then(() => undefined)); // client caps concurrency at 3
   };
+  const ack = (id: string) => { const v = byId(id)?.changeOrder?.verify; if (v) { v.acknowledged = true; render(); } };
+  const retryVerify = (id: string) => direct((a, i) => runVerify(a, byId(id)!, i, client, render));
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
   const tab = (m: Mode, label: string) => (
@@ -157,7 +160,7 @@ export default function App() {
 
         {analysis && (
           <Results analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
-            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport}
+            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify}
             recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")}
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}

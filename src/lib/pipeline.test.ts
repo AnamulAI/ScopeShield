@@ -236,3 +236,35 @@ describe("runPrice", () => {
     expect(b.item.agreedPrice).toMatchObject({ status: "done", value: null, evidence: null });
   });
 });
+
+import { runVerify } from "./pipeline";
+describe("runVerify", () => {
+  const withDraft = () => {
+    const { a, item } = blank();
+    item.changeOrder = { status: "done", regenerated: false, data: { category: null, unpaidRisk: null, priceMentioned: null, priceEvidence: null, message: "A blog is extra.", nextStep: "Send a quote", inventedMessage: [], inventedNextStep: [], usage: null } };
+    return { a, item };
+  };
+  it("sends two NAMED documents (contract, thread) and the message as the answer; stores claims and counts credits", async () => {
+    const seen: any[] = [];
+    const client = clientFor([{ claims: [{ claim: "A blog is extra.", kind: "claim", verdict: "contradicted", supported: 0, contradicted: 0.9, not_stated: 0, source: null }, { claim: "ask me", kind: "offer_or_question", verdict: "not_a_claim", supported: 0, contradicted: 0, not_stated: 0, source: null }] }], seen);
+    const { a, item } = withDraft();
+    await runVerify(a, item, inputs, client, () => {});
+    expect(seen[0].documents).toEqual([{ id: "contract", text: inputs.contract }, { id: "thread", text: inputs.thread }]);
+    expect(seen[0].answer).toBe("A blog is extra.");
+    expect(item.changeOrder!.verify!.status).toBe("done");
+    expect(item.changeOrder!.verify!.claims).toHaveLength(1);
+    expect(a.usage.verify.credits).toBe(8);
+  });
+  it("a failed Verify marks the draft not verified without failing the change order", async () => {
+    const bad = createClockedClient({ fetchImpl: (async () => new Response("{}", { status: 400 })) as unknown as typeof fetch });
+    const { a, item } = withDraft();
+    await runVerify(a, item, inputs, bad, () => {});
+    expect(item.changeOrder!.status).toBe("done");
+    expect(item.changeOrder!.verify!.status).toBe("failed");
+  });
+  it("does nothing when there is no generated message", async () => {
+    const { a, item } = blank();
+    await runVerify(a, item, inputs, clientFor([]), () => {});
+    expect(item.changeOrder).toBeUndefined();
+  });
+});
