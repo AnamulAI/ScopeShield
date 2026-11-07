@@ -42,7 +42,28 @@ ScopeShield uses four Clocked endpoints in one pipeline. Each output changes wha
 
 **Evidence:** a live eval of 23 golden cases (22 pass; the one failure is listed openly in [docs/eval-results.md](docs/eval-results.md)), 91 unit tests, and measured credit cost per sample in [docs/credit-usage.md](docs/credit-usage.md).
 
-*Still to come in the README: the endpoint summary table, how uncertain results are handled in detail, honest limitations, and credits. Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).*
+## What we learned while building it
+
+Extract's list of requests can miss an item in a long thread, so ScopeShield extracts per client message instead. Tightening the description to ignore confirmations and thanks then made it miss plain requests like "Can you change the banner colour?". A full-thread run exposed it; we added a golden case and reworded the field.
+
+Probabilities were more useful than labels. A WhatsApp button request scored about 0.55 on its own but was judged inside the scope in the full thread, because the developer had said there was no extra charge. We updated the expectation instead of tuning the prompt to hit a number, and wrote the case up in [docs/eval-notes.md](docs/eval-notes.md).
+
+Fill needed anchoring. An extract over the whole thread picked the wrong request, so every Fill call is now tied to the one request being drafted. A Fill field then returned "no extra cost" as a price; we clarified the field description and added a golden case, and a separate check blocks any currency amount in generated text that is not in the contract or thread. Decide's single-choice kind tag sometimes disagreed with its outside-contract probability, so the tag is only a label and never the verdict.
+
+Verify is a safety net, not a guarantee. In a probe with deliberately wrong claims it flagged two of three and missed a false statement that the client had approved something. Treat its result as a second pair of eyes and still read the draft before you send it.
+
+Design decision: the application owns the thresholds, not the model. That made the Ask me queue and the withdrawn state easy to explain and test.
+
+## Limitations
+
+- The samples are small and hand-written, so the eval numbers say little about real threads.
+- The 402 (credits used up) banner and the invented-amount check are unit-tested but were not seen live. The Verify "contradicted" and "not found" states were checked in the browser only with a hand-made fixture, because none of the recorded drafts triggered them.
+- The hour figures are rough estimates from a model score, not quotes.
+- One golden case fails and is left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids ([docs/eval-results.md](docs/eval-results.md)).
+- Extraction can still miss or mis-split a request; the app only shows what Extract returns. Threads must be one message per line as "Name: text", and the client's name must be typed.
+- Verify checks the message only, not the next step. The daily caps on live mode are approximate by design.
+
+*Still to come in the README: an endpoint summary table, screenshots, how to run locally in five commands, and credits for third-party libraries. Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).*
 
 ## Deploy (Cloudflare Pages)
 
