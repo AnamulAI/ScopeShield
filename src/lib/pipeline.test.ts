@@ -25,7 +25,7 @@ function mockClient(): { client: ClockedClient; calls: string[] } {
       }
       const blog = body.state.endsWith("add a blog 📝");
       return {
-        data: { answers: { outside_contract: { type: "noul", noul: blog ? 0.95 : 0.05 }, paid_agreement: { type: "noul", noul: 0.01 }, kind: { type: "choice", choice: "x", probabilities: {}, confidence: 1 }, effort: { type: "score", score: 1.2, legend: {}, probabilities: {}, confidence: 1 } } },
+        data: { answers: { outside_contract: { type: "noul", noul: blog ? 0.95 : 0.05 }, paid_agreement: { type: "noul", noul: 0.01 }, withdrawn: { type: "noul", noul: 0.01 }, kind: { type: "choice", choice: "x", probabilities: {}, confidence: 1 }, effort: { type: "score", score: 1.2, legend: {}, probabilities: {}, confidence: 1 } } },
         usage: { credits: 1, costUsd: 0, modelMs: 0 },
         attempts: 1,
       };

@@ -26,7 +26,8 @@ async function runCase(c: any): Promise<Result> {
       const fails: string[] = [];
       if (c.expect.outside && !inRange(verdict.outside, c.expect.outside)) fails.push(`outside ${verdict.outside.toFixed(3)} not in ${fmtRange(c.expect.outside)}`);
       if (c.expect.paid && !inRange(verdict.paid, c.expect.paid)) fails.push(`paid ${verdict.paid.toFixed(3)} not in ${fmtRange(c.expect.paid)}`);
-      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `outside ${verdict.outside.toFixed(3)}, paid ${verdict.paid.toFixed(3)}, kind ${verdict.kind}` };
+      if (c.expect.withdrawn && !inRange(verdict.withdrawn, c.expect.withdrawn)) fails.push(`withdrawn ${verdict.withdrawn.toFixed(3)} not in ${fmtRange(c.expect.withdrawn)}`);
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `outside ${verdict.outside.toFixed(3)}, paid ${verdict.paid.toFixed(3)}, withdrawn ${verdict.withdrawn.toFixed(3)}, kind ${verdict.kind}` };
     }
     if (c.kind === "extract") {
       const msg = parseThread(`Client: ${c.message}`, "Client")[0];

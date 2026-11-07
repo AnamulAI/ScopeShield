@@ -10,7 +10,7 @@ export function buildExtractRequest(messageText: string) {
     fields: {
       client_requests: {
         description:
-          "Each distinct thing the client asks the developer to do, change, add, build or fix, quoted verbatim from the text. Do not include thanks, opinions, questions about price, or promises to decide later. Leave empty if there is no actionable request.",
+          "Each separate NEW thing the client asks the developer to build or change, as a short noun phrase. Do NOT include: confirmations or acceptances of an earlier request (e.g. 'go ahead', 'sounds good'), cancellations or withdrawals, thanks, questions about price or timing, or anything the developer says.",
         list: true,
         max_items: 8,
       },
@@ -32,6 +32,11 @@ export function buildDecideRequest(contract: string, thread: string, request: st
         type: "noul",
         instructions:
           "Did the client clearly agree to pay extra for the LATEST REQUEST TO EVALUATE (accepting a stated price or saying to proceed), without withdrawing it later?",
+        threshold: 0.75,
+      },
+      withdrawn: {
+        type: "noul",
+        instructions: "Did the client later withdraw, cancel or drop this specific request?",
         threshold: 0.75,
       },
       kind: {

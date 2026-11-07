@@ -11,6 +11,8 @@ export type Status = "pending" | "running" | "done" | "failed";
 export interface Verdict {
   outside: number;
   paid: number;
+  /** Probability the client later withdrew this request. */
+  withdrawn: number;
   kind: string;
   /** Zero-based expected effort score (0 = trivial ... 3 = large). Rough, never a fact. */
   effort: number;
@@ -53,11 +55,12 @@ function shapeError(what: string) {
 
 export function parseVerdict(res: DecideResponse): Verdict {
   const a = res.answers;
-  const outside = a?.outside_contract, paid = a?.paid_agreement, kind = a?.kind, effort = a?.effort;
-  if (outside?.type !== "noul" || paid?.type !== "noul") throw shapeError("decide");
+  const outside = a?.outside_contract, paid = a?.paid_agreement, wd = a?.withdrawn, kind = a?.kind, effort = a?.effort;
+  if (outside?.type !== "noul" || paid?.type !== "noul" || wd?.type !== "noul") throw shapeError("decide");
   return {
     outside: (outside as DecideNoul).noul,
     paid: (paid as DecideNoul).noul,
+    withdrawn: (wd as DecideNoul).noul,
     kind: kind?.type === "choice" ? kind.choice : "unclear",
     effort: effort?.type === "score" ? effort.score : 0,
   };
@@ -82,7 +85,7 @@ export async function extractMessage(client: ClockedClient, msg: Message) {
 export async function decideRequest(client: ClockedClient, inputs: Inputs, request: string) {
   const { data, usage } = await client.call<DecideResponse>("decide", buildDecideRequest(inputs.contract, inputs.thread, request));
   const verdict = parseVerdict(data);
-  return { verdict, route: route(verdict.outside, verdict.paid), usage };
+  return { verdict, route: route(verdict), usage };
 }
 
 /** Full analysis. `onUpdate` receives the (mutated) state after every change; partial results are always kept. */
