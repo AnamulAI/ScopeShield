@@ -61,9 +61,10 @@ Clocked is strong at: "an approval request is not an approval", "later messages 
 
 ## Pipeline (each step must change app behaviour)
 1. Parse thread into messages (`Name: text` lines). User names the client in an input; the app does not guess who is the client.
-2. **Extract** per CLIENT message → `client_requests` (list, `infer:false` semantics via description) with offsets → map to thread offsets (message start + start, in code points). Output drives the request list and the evidence highlights. Empty list = "no actionable request" shown explicitly.
-3. **Decide** per request, state = contract + FULL thread + `LATEST REQUEST TO EVALUATE: <request>` → outside_contract, paid_agreement, kind, effort.
+2. **Extract** per CLIENT message → `client_requests` (list, `infer:false` semantics via description; the description excludes confirmations/acceptances, cancellations, thanks, price/timing questions and developer text) with offsets → map to thread offsets (message start + start, in code points). Output drives the request list and the evidence highlights. Empty list = "no actionable request" shown explicitly.
+3. **Decide** per request, state = contract + FULL thread + `LATEST REQUEST TO EVALUATE: <request>` → outside_contract, paid_agreement, withdrawn (noul, threshold 0.75: "Did the client later withdraw, cancel or drop this specific request?"), kind, effort.
 4. **Route (app-owned thresholds, in `routing.ts`):**
+   - withdrawn ≥ 0.75 → WITHDRAWN (checked FIRST; shown struck through with its evidence; excluded from Scope Health and from Fill)
    - outside < 0.30 → IN SCOPE
    - 0.30 ≤ outside < 0.70 → ASK ME (ambiguous scope)
    - outside ≥ 0.70 and paid ≥ 0.75 → AGREED EXTRA (check it is invoiced)
