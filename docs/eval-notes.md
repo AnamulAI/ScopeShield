@@ -36,3 +36,26 @@ Eval result after the change: **20/21 golden cases pass.** The one failure is re
 One of our own checks was too strict: the first run flagged six messages for "not asking to confirm" because the regex looked for the word "confirm", while the messages said "please let me know if you would like to proceed before any work starts". That is a valid ask, so the check was widened (confirm / let me know / proceed / go ahead / approve / before work starts). This was a fix to the test, and the 6 messages themselves were not changed.
 
 Re-recording used `npm run snapshot -- --only fill,price` (Extract and Decide results kept; Fill and price results replaced). It cost 99 credits (bakery 38, fitness 34, brand 27). Observed in the new recordings: all 8 change orders say the request is outside the agreement and ask for a go-ahead; next steps are imperative; the 70-word limit holds. Remaining roughness: next steps quote the request verbatim including its trailing "?", and some messages offer to "provide a quote", which reads slightly odd for a freelancer who is the one quoting.
+
+## M7: Verify (`/grounding`) on generated change-order messages (7 Nov 2026)
+
+Request and response shapes were read from the docs and confirmed with real calls: `POST /clocked/grounding` with `documents: [{id, text}]`, `answer`, optional `instructions`, `evidence: "all"`; the raw response has top-level `grounded`, `verdict` and `claims[]` (each with `claim`, `kind`, `verdict` of supported / contradicted / not_stated / not_a_claim, three probabilities, `source`, optional `evidence {document, quote, start, end}`; offsets are local to the named document). No `data` wrapper.
+
+What the app does with it: after Fill, the generated **message** is checked against two named sources, `contract` and `thread`. The **next step is not sent**: a real test showed Verify splitting the quoted request in the next step into meaningless fragments ("not a claim"), and a next step is an instruction to the freelancer, not a statement about the documents. The invented-amount guard stays; Verify is an extra layer.
+
+Policy (decided after seeing real outputs):
+- **Contradicted** claim: Copy is blocked for that draft; the claim and the passage that contradicts it are shown, with "Show in thread" when the passage is in the thread. Acknowledging does not unblock it.
+- **Not stated** claim: amber "Not found in the thread" note with the claim; not blocking (a promise such as "the price will be quoted separately" is not a fact), but Copy is gated behind one click on "I've read this".
+- **Supported** claims: counted ("N claims checked against the contract and thread"), evidence in a collapsed list. Evidence passages that fall in the thread are highlighted while that change order is open.
+- Verify unavailable: the draft is labelled "Not verified" with a retry; Copy is not blocked by Verify (the amount guard still applies).
+- We added one instruction sentence: offers, requests and promises by the freelancer are not factual claims about the documents. Even before that wording, the first real call judged "The price for this will be quoted separately" as supported (from the developer's "I can send you a quote").
+
+Real outcomes on the 8 recorded change orders (`npm run snapshot -- --only verify`, 35 credits, about 4 to 6 per draft): **every claim was supported** (1 to 2 claims per draft; offers and questions were classified as not-a-claim). 0 not stated, 0 contradicted. So normal drafts produce no false alarms, and we kept the stricter display policy above.
+
+Golden checks (2 new, 7 credits): a test-only string with deliberately wrong claims ("Online ordering is included in the agreed contract. You agreed to pay $500 for it.") is flagged (1 contradicted, 1 not stated), and a true claim is not contradicted. **A miss we saw while probing:** in a separate probe, the false claim "Nila approved it in the thread" was judged *supported* (0.73), although Nila only said "let me think about it". Verify can be wrong; this is why the UI says it checks support in the sources and why the draft still needs a human read.
+
+Eval after M7: **22/23** golden cases pass; the remaining failure is the known WhatsApp "I can certainly" case from M5.5.
+
+Other things found while doing M7:
+- The local `wrangler pages dev` server picked up the KV binding from `wrangler.toml` and our own daily cap blocked the eval after about 80 local calls. The proxy now skips the caps on localhost (a deployed host is never localhost); tests cover both sides.
+- The secret-scan hook was re-checked: `CLOCKED_API_KEY=` followed by a 32-character value and `Authorization: Bearer` followed by a long token were both blocked, and a harmless line containing `risk-large-no-agreement` passed. That harmless control file was accidentally committed (and removed in the next commit); the fake-key files were blocked and never entered history.
