@@ -74,6 +74,11 @@ Clocked is strong at: "an approval request is not an approval", "later messages 
 5b. **Decisions and evidence (M3).** ASK ME cards show ONE template-built question (scope-unclear vs agreement-unclear; no model call) with In scope / Extra work / Skip; the answer is stored as "Your decision", can be undone, and moves the item (In scope, or Needs change order). "Extra work" never overrides WITHDRAWN. For AGREED EXTRA and WITHDRAWN items an Extract over the full thread finds the agreement / withdrawal sentence (offsets verified, else "not located"). Fill runs only on demand ("Prepare change order", or "Prepare all", concurrency 3). Invented-amount guard: if generated text contains a currency amount that is not in the contract or thread, Copy is blocked with a visible warning and exactly one strict Regenerate is offered.
 6. Scope Health meter: counts per queue + estimated unpaid effort. Map expected effort score → rough hour bands (clearly labelled "rough estimate"); optional user-entered hourly rate. Never present estimates as facts.
 
+## M4 additions (implemented)
+- Demo mode is the default: recorded runs of the three synthetic samples (`samples/*.json`, recorded by `npm run snapshot` into `public/demo/*.json` with date and credits), served as static files; the demo client makes NO API calls. "Run live" uses the proxy with input caps.
+- Scope Health: counts per queue and a rough unpaid-effort range (bands: <0.5 under 1 h, 0.5-1.5 about 2-6 h, 1.5-2.5 about 16-24 h, >2.5 40 h or more). WITHDRAWN and IN SCOPE never count. Money appears only if the user types an hourly rate.
+- Errors: `src/lib/errors.ts` maps every failure class to a specific message; 402 offers "Switch to Demo mode".
+
 ## UX principles
 - Evidence first: every verdict shows the client's original sentence highlighted in the thread (Extract offsets), plus the probabilities (as bars) behind it.
 - Uncertainty is a feature: ASK ME cards ask ONE concrete question ("Did you agree to include the WhatsApp button at no extra cost?") with three buttons: In scope / Extra work / Skip. The override is recorded and shown as "your decision".
