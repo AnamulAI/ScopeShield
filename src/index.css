@@ -1,1 +1,40 @@
 @import "tailwindcss";
+
+@theme {
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-paper: #f4efe4;
+  --color-card: #fffcf5;
+  --color-ink: #1b2233;
+  --color-muted: #5f6677;
+  --color-line: #e2dac8;
+  --color-navy: #1b2a41;
+
+  --color-change: #a8420d;
+  --color-change-bg: #f9e5d6;
+  --color-ask: #5f43a8;
+  --color-ask-bg: #ebe5f7;
+  --color-scope: #2f6e4c;
+  --color-scope-bg: #dfeee4;
+  --color-agreed: #1c6783;
+  --color-agreed-bg: #d9ecf3;
+  --color-withdrawn: #6e717b;
+  --color-withdrawn-bg: #e9e8e6;
+  --color-pending-bg: #efe6c8;
+}
+
+html { background: var(--color-paper); }
+body { font-family: var(--font-sans); color: var(--color-ink); background:
+  radial-gradient(1200px 500px at 85% -10%, #fbf8ef 0%, transparent 60%), var(--color-paper); min-height: 100vh; }
+
+.font-display { font-family: var(--font-display); }
+
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgb(27 42 65 / .35); } 100% { box-shadow: 0 0 0 10px rgb(27 42 65 / 0); } }
+.flash { animation: pulse-ring .9s ease-out 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: .9rem; height: .9rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 9999px; animation: spin .7s linear infinite; display: inline-block; }
+@media (prefers-reduced-motion: reduce) { .flash, .spinner { animation: none; } }
+
+:focus-visible { outline: 2px solid var(--color-navy); outline-offset: 2px; border-radius: 4px; }
