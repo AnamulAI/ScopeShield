@@ -1,3 +1,4 @@
+import { describeError } from "../lib/errors";
 import { forwardRef } from "react";
 import type { RequestItem } from "../lib/pipeline";
 import { askQuestion, effectiveQueue, THRESHOLDS, type Decision } from "../lib/routing";
@@ -39,7 +40,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
 
       {item.status === "failed" && (
         <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-change/30 bg-change-bg/60 px-3 py-2 text-sm">
-          <span className="text-change">Could not check this request: {item.error}</span>
+          <span className="text-change"><b>{describeError(item.errorKind, item.error).title}</b> {describeError(item.errorKind, item.error).hint}</span>
           <button onClick={onRetry} className="rounded-md bg-navy px-3 py-1 text-xs font-medium text-white hover:bg-navy/90">Retry</button>
         </div>
       )}

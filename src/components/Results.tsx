@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { totalCredits, type Analysis } from "../lib/pipeline";
 import { effectiveQueue, type Decision, type Queue } from "../lib/routing";
 import { RequestCard } from "./RequestCard";
+import { describeError, worstKind } from "../lib/errors";
 import { QUEUE_ORDER, QUEUES } from "./queues";
+import { ScopeHealth } from "./ScopeHealth";
 import { ThreadView } from "./ThreadView";
 
 interface Props {
@@ -10,9 +12,10 @@ interface Props {
   onRetryItem: (id: string) => void; onRetryMessage: (idx: number) => void;
   onDecide: (id: string, d: Decision | undefined) => void; onPrepare: (id: string) => void; onPrepareAll: () => void;
   onRegenerate: (id: string) => void; onRetrySupport: (id: string) => void;
+  recorded?: boolean; onSwitchDemo?: () => void;
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, recorded, onSwitchDemo }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
@@ -29,7 +32,10 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const msgDone = analysis.messageStates.filter((m) => m.status === "done" || m.status === "failed").length;
   const itemsDone = analysis.items.filter((i) => i.status === "done" || i.status === "failed").length;
   const failures = analysis.messageStates.filter((m) => m.status === "failed").length + analysis.items.filter((i) => i.status === "failed").length;
-  const creditsOut = [...analysis.messageStates, ...analysis.items].some((x) => x.errorKind === "credits");
+  const kinds = [...analysis.messageStates, ...analysis.items].map((x) => (x.status === "failed" ? x.errorKind : undefined))
+    .concat(analysis.items.map((i) => (i.changeOrder?.status === "failed" ? i.changeOrder.errorKind : undefined)));
+  const worst = worstKind(kinds);
+  const described = worst ? describeError(worst) : null;
   const finished = !running;
   const speaker = (idx: number) => analysis.messages[idx]?.speaker ?? "";
 
@@ -69,9 +75,18 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
             </li>
           ))}
         </ul>
-        {creditsOut && <p role="alert" className="mt-3 rounded-lg bg-change-bg px-3 py-2 text-sm text-change">Clocked credits are used up, so some checks failed. Results so far are kept.</p>}
-        {finished && failures > 0 && !creditsOut && <p role="alert" className="mt-3 text-sm text-change">{failures} step{failures === 1 ? "" : "s"} failed. Everything else is kept; use Retry on the failed items.</p>}
+        {described && (
+          <div role="alert" className="mt-3 rounded-lg border border-change/30 bg-change-bg/70 px-3 py-2 text-sm text-change">
+            <b>{described.title}</b> {described.hint}
+            {finished && failures > 0 && <span> {failures} step{failures === 1 ? "" : "s"} failed; everything else is kept, and each failed item has its own Retry.</span>}
+            {described.credits && onSwitchDemo && (
+              <button onClick={onSwitchDemo} className="ml-2 rounded-md bg-navy px-3 py-1 text-xs font-semibold text-white">Switch to Demo mode</button>
+            )}
+          </div>
+        )}
       </div>
+
+      <ScopeHealth items={analysis.items} />
 
       <div className="flex gap-1 lg:hidden" role="tablist">
         {(["findings", "thread"] as const).map((t) => (
@@ -118,7 +133,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
       </div>
 
       <footer className="border-t border-line pt-3 text-xs text-muted">
-        Credits used this run: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, change orders {analysis.usage.fill.credits}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
+        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, change orders {analysis.usage.fill.credits}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
       </footer>
     </section>
   );

@@ -1,3 +1,4 @@
+import { describeError } from "../lib/errors";
 import { changeOrderText, copyBlocked, type RequestItem } from "../lib/pipeline";
 import { CopyButton } from "./CopyButton";
 
@@ -24,7 +25,7 @@ export function ChangeOrderPanel({ item, onPrepare, onRegenerate, onShowPrice }:
   if (st.status === "failed") {
     return (
       <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
-        <span className="text-change">Could not prepare the change order: {st.error}</span>
+        <span className="text-change"><b>{describeError(st.errorKind, st.error).title}</b> {describeError(st.errorKind, st.error).hint}</span>
         <button onClick={onPrepare} className="rounded-md bg-navy px-3 py-1 text-xs font-medium text-white">Retry</button>
       </div>
     );

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { describeError } from "../lib/errors";
 import type { Analysis } from "../lib/pipeline";
 import { segmentMessage } from "../lib/thread";
 import { effectiveQueue } from "../lib/routing";
@@ -33,7 +34,7 @@ export function ThreadView({ analysis, activeId, onPick, onRetryMessage }: Props
               {st?.status === "done" && st.requestCount === 0 && <span className="text-xs text-muted">No actionable request</span>}
               {st?.status === "failed" && (
                 <span className="flex items-center gap-2 text-xs text-change" role="alert">
-                  Read failed
+                  <span title={describeError(st.errorKind, st.error).hint}>{describeError(st.errorKind, st.error).title}</span>
                   <button onClick={() => onRetryMessage(m.index)} className="rounded bg-navy px-2 py-0.5 text-white">Retry</button>
                 </span>
               )}
