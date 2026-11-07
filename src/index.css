@@ -81,6 +81,12 @@ mark.sweep { position: relative; }
 mark.sweep::after { content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; border-radius: 2px; background: var(--color-navy); transform-origin: left center; animation: sweep .9s cubic-bezier(.2,.7,.2,1) both; pointer-events: none; }
 @keyframes sweep { 0% { transform: scaleX(0); opacity: 1; } 55% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
 
+/* Thread replay: hidden messages stay in the DOM and keep their space (no layout shift); they are inert and transparent until revealed. */
+.replay-item { transition: opacity .35s ease, transform .35s ease; }
+.replay-item.is-hidden { opacity: 0; transform: translateY(10px); pointer-events: none; }
+.chip-in { transition: opacity .3s ease .25s, transform .15s ease; }
+.is-hidden .chip-in { opacity: 0; }
+
 /* Small physical responses: buttons lift on hover and press in */
 .press { transition: transform .15s ease, opacity .15s ease; }
 .press:hover:not(:disabled) { transform: translateY(-1px); }

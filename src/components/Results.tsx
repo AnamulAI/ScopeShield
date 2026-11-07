@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { totalCredits, type Analysis } from "../lib/pipeline";
 import { effectiveQueue, type Decision, type Queue } from "../lib/routing";
 import { RequestCard } from "./RequestCard";
 import { describeError, worstKind } from "../lib/errors";
 import { QUEUE_ORDER, QUEUES } from "./queues";
 import { ErrorBanner } from "./ErrorBanner";
-import { QueueIcon } from "./icons";
+import { ChevronIcon, PauseIcon, PlayIcon, QueueIcon, RestartIcon, SkipEndIcon } from "./icons";
+import { isExpanded, visibleQueues, type Filter } from "../lib/replay";
+import { useReplay } from "./useReplay";
 import { ScopeHealth } from "./ScopeHealth";
 import { ThreadView } from "./ThreadView";
 
@@ -26,6 +28,9 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [expanded, setExpanded] = useState<Set<Queue>>(new Set());
+  const toggleExpanded = (q: Queue, v: boolean) => setExpanded((prev) => { const n = new Set(prev); if (v) n.add(q); else n.delete(q); return n; });
   const [openCO, setOpenCO] = useState<Set<string>>(() => new Set(openAll ? analysis.items.filter((i) => i.changeOrder).map((i) => i.id) : []));
   const setCoOpen = (id: string, v: boolean) => setOpenCO((prev) => { const n = new Set(prev); if (v) n.add(id); else n.delete(id); return n; });
 
@@ -38,6 +43,13 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
     return g;
   }, [analysis.items]);
 
+  const replayMsgs = useMemo(() => analysis.messages.map((m) => ({ isClient: m.isClient, text: m.text, speaker: m.speaker })), [analysis.messages]);
+  const verdictsFor = useCallback(
+    (idx: number) => analysis.items.filter((i) => i.messageIndex === idx).map((i) => { const q = effectiveQueue(i.route, i.decision); return q === "pending" ? "" : `${i.text}: ${QUEUES[q].label}`; }).filter(Boolean),
+    [analysis.items],
+  );
+  const replay = useReplay(replayMsgs, !!recorded, verdictsFor);
+
   const msgDone = analysis.messageStates.filter((m) => m.status === "done" || m.status === "failed").length;
   const itemsDone = analysis.items.filter((i) => i.status === "done" || i.status === "failed").length;
   const failures = analysis.messageStates.filter((m) => m.status === "failed").length + analysis.items.filter((i) => i.status === "failed").length;
@@ -49,6 +61,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const speaker = (idx: number) => analysis.messages[idx]?.speaker ?? "";
 
   const focus = (id: string, from: "card" | "thread") => {
+    if (recorded && replay.revealed < replay.total) replay.finish(); // make sure the message is on screen
     setActiveId(id);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setActiveId(null), 2500);
@@ -59,10 +72,11 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const total = analysis.items.length;
+  const counts = (q: Queue) => groups.get(q)?.length ?? 0;
   const card = (item: (typeof analysis.items)[number], i = 0) => (
     <RequestCard key={item.id} revealIndex={Math.min(i, 5)} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
       coOpen={openCO.has(item.id)} setCoOpen={(v) => setCoOpen(item.id, v)}
-      onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => { if (d === "extra") setCoOpen(item.id, true); onDecide(item.id, d); }}
+      onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => { if (d === "extra") setCoOpen(item.id, true); if (d === "in_scope") toggleExpanded("in_scope", true); onDecide(item.id, d); }}
       onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} onAck={() => onAck(item.id)} onRetryVerify={() => onRetryVerify(item.id)} />
   );
   const preparable = (groups.get("needs_change_order") ?? []).filter((i) => i.status === "done" && (!i.changeOrder || i.changeOrder.status === "failed"));
@@ -86,7 +100,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
             <div className="h-full origin-left rounded-full bg-navy transition-transform duration-500" style={{ transform: `scaleX(${Math.max(pct, 6) / 100})` }} />
           </div>
         )}
-        <div className="mt-6"><ScopeHealth items={analysis.items} ready={finished} /></div>
+        <div className="mt-6"><ScopeHealth items={analysis.items} ready={finished} onJump={(q) => { setFilter("all"); if (q === "in_scope" || q === "withdrawn") toggleExpanded(q, true); }} /></div>
         {described && <ErrorBanner described={described} failures={finished ? failures : 0} onSwitchDemo={onSwitchDemo} />}
       </div>
 
@@ -100,11 +114,25 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
       </div>
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
-        <div className={`${tab === "findings" ? "" : "hidden"} space-y-10 lg:block`}>
+        <div className={`${tab === "findings" ? "" : "hidden"} min-w-0 space-y-10 lg:block`}>
           {finished && total === 0 && failures === 0 && (
             <div className="surface border-dashed p-8 text-center">
               <p className="t-h3">No actionable request found</p>
               <p className="mt-1 text-sm text-muted">The client’s messages contained nothing that asks for work. If that looks wrong, check the client name.</p>
+            </div>
+          )}
+          {total > 0 && (
+            <div role="group" aria-label="Filter requests by queue" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+              <button onClick={() => setFilter("all")} aria-pressed={filter === "all"}
+                className={`press inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold ${filter === "all" ? "border-navy bg-navy text-paper" : "border-line bg-card text-navy shadow-card"}`}>
+                All <b className="tnum">{total}</b>
+              </button>
+              {QUEUE_ORDER.map((q) => (
+                <button key={q} onClick={() => setFilter(filter === q ? "all" : q)} aria-pressed={filter === q} disabled={counts(q) === 0}
+                  className={`press inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-semibold disabled:opacity-45 ${filter === q ? `${QUEUES[q].border} ${QUEUES[q].bg} ${QUEUES[q].text}` : "border-line bg-card text-ink shadow-card"}`}>
+                  <QueueIcon queue={q} width={16} height={16} />{QUEUES[q].label} <b className="tnum">{counts(q)}</b>
+                </button>
+              ))}
             </div>
           )}
           {groups.has("pending") && (
@@ -121,27 +149,66 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
               </button>
             </div>
           )}
-          {QUEUE_ORDER.filter((q) => groups.get(q)?.length).map((q) => (
-            <section key={q} id={`queue-${q}`} aria-labelledby={`h-${q}`} className="scroll-mt-6 space-y-4">
-              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
-                <div>
-                  <h3 id={`h-${q}`} className={`t-h3 flex flex-wrap items-center gap-2 ${QUEUES[q].text}`}><QueueIcon queue={q} width={22} height={22} />{QUEUES[q].label} <span className="ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold tnum" style={{ background: "var(--color-paper-deep)", color: "var(--color-ink)" }}>{groups.get(q)!.length}</span></h3>
-                  <p className="mt-0.5 text-sm text-muted">{QUEUES[q].blurb}</p>
+          {QUEUE_ORDER.filter((q) => groups.get(q)?.length).map((q) => {
+            const shown = visibleQueues(filter, QUEUE_ORDER).includes(q);
+            const open = isExpanded(q, filter, expanded);
+            const collapsible = q === "in_scope" || q === "withdrawn";
+            const n = counts(q);
+            return (
+              <section key={q} id={`queue-${q}`} aria-labelledby={`h-${q}`} hidden={!shown} className="scroll-mt-20 space-y-4">
+                <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
+                  <div>
+                    <h3 id={`h-${q}`} className={`t-h3 flex flex-wrap items-center gap-2 ${QUEUES[q].text}`}><QueueIcon queue={q} width={22} height={22} />{QUEUES[q].label} <span className="ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold tnum" style={{ background: "var(--color-paper-deep)", color: "var(--color-ink)" }}>{n}</span></h3>
+                    <p className="mt-0.5 text-sm text-muted">{QUEUES[q].blurb}</p>
+                  </div>
+                  {q === "needs_change_order" && preparable.length > 1 && (
+                    <button onClick={onPrepareAll} className="rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card press hover:border-navy">
+                      Prepare all ({preparable.length}) · about {preparable.length * 10} credits
+                    </button>
+                  )}
+                  {collapsible && filter === "all" && (
+                    <button onClick={() => toggleExpanded(q, !open)} aria-expanded={open} aria-controls={`list-${q}`}
+                      className="press inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3.5 py-2 text-sm font-semibold text-navy shadow-card hover:border-navy/40">
+                      {open ? "Hide" : `Show ${n} request${n === 1 ? "" : "s"}`}
+                      <ChevronIcon width={16} height={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
                 </div>
-                {q === "needs_change_order" && preparable.length > 1 && (
-                  <button onClick={onPrepareAll} className="rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card press hover:border-navy">
-                    Prepare all ({preparable.length}) · about {preparable.length * 10} credits
-                  </button>
-                )}
-              </div>
-              {groups.get(q)!.map((it, i) => card(it, i))}
-            </section>
-          ))}
+                <div id={`list-${q}`} hidden={!open} className="space-y-4">
+                  {groups.get(q)!.map((it, i) => card(it, i))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
-        <aside className={`${tab === "thread" ? "" : "hidden"} lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1`}>
-          <h3 className="t-h3 mb-3">Thread</h3>
-          <ThreadView analysis={analysis} openIds={openCO} activeId={activeId} onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} />
+        <aside ref={replay.panel} aria-label="Thread" className={`${tab === "thread" ? "" : "hidden"} min-w-0 lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1`}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <h3 className="t-h3">Thread</h3>
+            {recorded && (
+              <div role="group" aria-label="Replay controls" className="flex flex-wrap gap-1.5">
+                <button onClick={replay.playing ? replay.pause : replay.play} className="press inline-flex items-center gap-1.5 rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">
+                  {replay.playing ? <PauseIcon width={14} height={14} /> : <PlayIcon width={14} height={14} />}{replay.playing ? "Pause" : replay.revealed >= replay.total ? "Replay" : "Play"}
+                </button>
+                <button onClick={replay.finish} disabled={replay.revealed >= replay.total} className="press inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy/40 disabled:opacity-50">
+                  <SkipEndIcon width={14} height={14} />Skip to end
+                </button>
+                <button onClick={replay.restart} className="press inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy/40">
+                  <RestartIcon width={14} height={14} />Restart
+                </button>
+              </div>
+            )}
+          </div>
+          {recorded && (
+            <>
+              <p className="mb-3 text-xs leading-5 text-muted">Replaying a recorded thread. Verdicts come from the recorded Clocked run.</p>
+              <div className="mb-3 h-1 overflow-hidden rounded-full bg-paper-deep" aria-hidden="true">
+                <div className="h-full origin-left bg-navy/70 transition-transform duration-300" style={{ transform: `scaleX(${replay.total ? replay.revealed / replay.total : 1})` }} />
+              </div>
+              <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="replay-live">{replay.live}</p>
+            </>
+          )}
+          <ThreadView analysis={analysis} openIds={openCO} activeId={activeId} onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} revealed={recorded ? replay.revealed : undefined} />
         </aside>
       </div>
 

@@ -8,6 +8,7 @@ import { HowItWorks } from "./components/HowItWorks";
 import { Results } from "./components/Results";
 import { ResultsSkeleton } from "./components/Skeleton";
 import { HeroFlow } from "./components/HeroFlow";
+import { ExternalIcon } from "./components/icons";
 
 type Mode = "demo" | "live";
 interface DemoIndexEntry { id: string; title: string; blurb: string; recordedAt: string }
@@ -119,17 +120,33 @@ export default function App() {
     </button>
   );
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-      <header className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Shield />
-          <span className="font-display text-xl leading-none">ScopeShield</span>
-        </div>
-        <p className="t-eyebrow hidden text-muted sm:block">Powered by Clocked</p>
-      </header>
+  const REPO = "https://github.com/AnamulAI/ScopeShield";
+  const openHow = () => document.getElementById("how-it-works")?.setAttribute("open", "");
+  const goDemo = (e: React.MouseEvent) => {
+    e.preventDefault();
+    switchMode("demo");
+    document.getElementById("demo")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  };
 
-      <section aria-labelledby="hero" className="mt-10 grid gap-8 border-b border-line pb-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end lg:gap-12 lg:pb-12">
+  return (
+    <>
+    <header className="sticky top-0 z-30 border-b border-line bg-paper/95">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <a href="#top" className="flex items-center gap-2.5" aria-label="ScopeShield, back to the top">
+          <Shield />
+          <span className="hidden font-display text-base leading-none min-[420px]:inline sm:text-lg">ScopeShield</span>
+        </a>
+        <nav aria-label="Main" className="flex items-center gap-0.5 whitespace-nowrap text-[0.8125rem] font-semibold sm:gap-2 sm:text-sm">
+          <a href="#demo" onClick={goDemo} className="rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">Demo</a>
+          <a href="#how-it-works" onClick={openHow} className="rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">How it works</a>
+          <a href={REPO} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">GitHub<ExternalIcon width={14} height={14} /><span className="sr-only"> (opens in a new tab)</span></a>
+          <span className="t-eyebrow ml-2 hidden border-l border-line pl-4 text-muted md:inline">Powered by Clocked</span>
+        </nav>
+      </div>
+    </header>
+    <div id="top" className="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+
+      <section aria-labelledby="hero" className="grid gap-8 border-b border-line pb-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end lg:gap-12 lg:pb-12">
         <div>
           <p className="t-eyebrow text-muted">For freelancers and small agencies</p>
           <h1 id="hero" className="t-display mt-3 max-w-[16ch]">Catch scope creep before it becomes unpaid work.</h1>
@@ -146,6 +163,7 @@ export default function App() {
 
       <main className="mt-8 space-y-8">
         <HowItWorks analysis={analysis} recorded={mode === "demo"} />
+        <div id="demo" className="scroll-mt-20" />
 
         {mode === "demo" ? (
           <section className="space-y-5" aria-label="Demo mode">
@@ -184,17 +202,48 @@ export default function App() {
         )}
 
         {analysis && (
-          <Results analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
+          <Results key={mode === "demo" ? `demo-${demoId}` : "live"} analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
             onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify}
             recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")} openAll={hashParams.get("open") === "1"}
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}
       </main>
 
-      <footer className="mt-16 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6 text-xs text-muted">
-        <p>Powered by Clocked. Sample data is synthetic: made-up people and companies.</p>
-        <p>Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development.</p>
+      <footer className="mt-16 border-t border-line pt-10">
+        <div className="grid gap-8 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <p className="flex items-center gap-2"><Shield /><span className="font-display text-lg">ScopeShield</span></p>
+            <p className="max-w-xs text-muted">Catch scope creep before it becomes unpaid work.</p>
+          </div>
+          <div>
+            <p className="t-eyebrow text-muted">Project</p>
+            <ul className="mt-3 space-y-2">
+              <li><a className="font-semibold text-navy underline underline-offset-4" href={REPO} target="_blank" rel="noopener noreferrer">Repository on GitHub</a></li>
+              <li><a className="font-semibold text-navy underline underline-offset-4" href={`${REPO}#readme`} target="_blank" rel="noopener noreferrer">README</a></li>
+              <li><a className="font-semibold text-navy underline underline-offset-4" href="#how-it-works" onClick={openHow}>How it works</a></li>
+            </ul>
+          </div>
+          <div>
+            <p className="t-eyebrow text-muted">Built by</p>
+            <ul className="mt-3 space-y-2">
+              <li>Mohammad Anamul Hoque (AnamDev)</li>
+              <li><a className="font-semibold text-navy underline underline-offset-4" href="https://www.anamulhoque.com" target="_blank" rel="noopener noreferrer">anamulhoque.com</a></li>
+            </ul>
+          </div>
+          <div>
+            <p className="t-eyebrow text-muted">Credits</p>
+            <ul className="mt-3 space-y-2 text-muted">
+              <li>Powered by Clocked</li>
+              <li>Fonts: Fraunces and Figtree (SIL Open Font License)</li>
+            </ul>
+          </div>
+        </div>
+        <p className="mt-10 flex flex-wrap justify-between gap-x-6 gap-y-2 border-t border-line pt-5 text-xs text-muted">
+          <span>Sample data is synthetic: made-up people and companies.</span>
+          <span>Built with AI-assisted development (Claude Code).</span>
+        </p>
       </footer>
     </div>
+    </>
   );
 }

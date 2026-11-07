@@ -11,7 +11,7 @@ export function HowItWorks({ analysis, recorded }: { analysis: Analysis | null; 
   const u = analysis?.usage;
   const total = u ? u.extract.credits + u.decide.credits + u.fill.credits + (u.price?.credits ?? 0) + (u.verify?.credits ?? 0) : 0;
   return (
-    <details className="group surface">
+    <details id="how-it-works" className="group surface scroll-mt-20">
       <summary className="flex list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold">
         <span className="flex flex-wrap items-baseline gap-x-3"><span className="t-h3">How it works</span><span className="font-normal text-muted">four Clocked endpoints, 30 seconds</span></span>
         <span aria-hidden className="text-muted transition-transform group-open:rotate-180">▾</span>

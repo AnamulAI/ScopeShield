@@ -47,6 +47,7 @@ const heroClip = async (name, width, setup) => {
 
 for (const [name, width, path, opts] of SHOTS) {
   await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: width < 500 });
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] }); // finished thread, final values
   await send("Page.navigate", { url: "about:blank" }); // hash-only changes do not reload, so leave the page first
   await sleep(300);
   await send("Page.navigate", { url: `${BASE}${path}` });
@@ -57,6 +58,7 @@ for (const [name, width, path, opts] of SHOTS) {
   writeFileSync(`docs/screenshots/${name}.png`, Buffer.from(shot.result.data, "base64"));
   console.log(name, width, height);
 }
+await send("Emulation.setEmulatedMedia", { features: [] });
 await heroClip("hero-mid-animation", 1280, { freezeAt: 1500 });
 await heroClip("hero-reduced-motion", 1280, { reduced: true });
 ws.close(); chrome.kill();

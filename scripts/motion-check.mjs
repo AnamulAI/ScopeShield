@@ -1,5 +1,6 @@
 // Scripted browser check of the motion layer (needs `npm run pages:dev` and Google Chrome). Exit code 1 on any failure.
 //   node scripts/motion-check.mjs
+// Also checks the thread replay, filter chips, collapsed groups, Findings/Thread tabs, header and footer links.
 // Checks, at 1280px and 375px, that probability bars and counters always end at their REAL values:
 //   1 scrolling to far-below-the-fold cards, in all three samples, after switching samples, and after resolving/undoing an Ask me card
 //   2 IntersectionObserver missing, or animations/rAF failing
@@ -119,6 +120,85 @@ for (const width of [1280, 375]) {
   ok(b.length === 0, `print/full-page bars ${JSON.stringify(b.slice(0, 2))}`);
   ok(c.every((x) => x.real === x.shown), `print counters ${JSON.stringify(c)}`);
   await send("Emulation.setEmulatedMedia", { media: "" });
+
+  // ===== v2: replay, filters, collapsed groups, tabs, header/footer =====
+  const hiddenCount = "document.querySelectorAll('li[data-hidden=\"true\"]').length";
+  const msgCount = "document.querySelectorAll('ol[aria-label^=\"Thread\"] > li').length";
+  const apiCalls = "performance.getEntriesByType('resource').filter((e) => new URL(e.name).pathname.startsWith('/api/')).length";
+  const clickText = (t, scope = "document") => ev(`[...${scope}.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith(${JSON.stringify(t)})).click()`);
+  const showThread = async () => {
+    if (width < 500) await clickText("Thread");
+    await ev("document.querySelector('aside[aria-label=\"Thread\"]').scrollIntoView({ block: 'start' })");
+  };
+
+  // replay: autoplay once when the panel is first visible; every message stays in the DOM
+  await load(width, "#sample=bakery");
+  const total = await ev(msgCount);
+  ok(total > 20, `${width}: thread has ${total} messages in the DOM`);
+  ok((await ev(hiddenCount)) === 0, "thread starts in its finished state before the panel is visible (no autoplay yet)");
+  await showThread(); await sleep(1400);
+  const mid = await ev(hiddenCount);
+  console.log(`replay autoplay: ${mid} of ${total} messages still hidden after 1.4 s`);
+  ok(mid > 0 && mid < total, `autoplay should be part-way (hidden=${mid})`);
+  ok((await ev(msgCount)) === total, "all messages stay in the DOM while hidden");
+  ok((await ev("document.querySelector('[data-testid=replay-live]').textContent.length")) > 0, "aria-live region got an announcement");
+  ok((await ev("document.querySelector('li[data-hidden=\"true\"]').hasAttribute('inert')")) === true, "hidden messages are inert");
+  await clickText("Pause"); const p1 = await ev(hiddenCount); await sleep(1500); const p2 = await ev(hiddenCount);
+  ok(p1 === p2, `Pause holds still (${p1} -> ${p2})`);
+  await clickText("Play"); await sleep(1800);
+  ok((await ev(hiddenCount)) < p2, "Play resumes");
+  await clickText("Skip to end");
+  ok((await ev(hiddenCount)) === 0 && (await ev("document.querySelectorAll('li[inert]').length")) === 0, "Skip to end shows the whole thread");
+  await clickText("Restart"); await sleep(700);
+  ok((await ev(hiddenCount)) > 0, "Restart hides the thread again and replays");
+  // clicking a card finishes the replay and highlights its message
+  await ev("document.querySelector('article p.font-display').click()"); await sleep(500);
+  ok((await ev(hiddenCount)) === 0, "clicking a card reveals every message");
+  ok((await ev("document.querySelectorAll('mark.sweep').length")) >= 1, "clicking a card highlights its message in the thread");
+  ok((await ev(apiCalls)) === 0, "replay makes no API calls");
+
+  // reduced motion: finished thread, no autoplay, controls still work
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await load(width, "#sample=bakery");
+  await showThread(); await sleep(1800);
+  ok((await ev(hiddenCount)) === 0, "reduced motion: finished thread, no autoplay");
+  ok((await ev("[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith('Replay'))")) === true, "reduced motion: replay control still offered");
+  await send("Emulation.setEmulatedMedia", { features: [] });
+
+  // filters and collapsed groups (all information stays in the DOM)
+  await load(width, "#sample=bakery");
+  const articles = await ev("document.querySelectorAll('article').length");
+  const visibleCards = "[...document.querySelectorAll('article')].filter((a) => a.offsetParent !== null).length";
+  const hiddenLists = "[...document.querySelectorAll('[id^=list-]')].filter((l) => l.hidden).map((l) => l.id)";
+  ok(JSON.stringify(await ev(hiddenLists)) === JSON.stringify(["list-in_scope", "list-withdrawn"]), `In scope and Withdrawn start collapsed ${JSON.stringify(await ev(hiddenLists))}`);
+  ok((await ev(visibleCards)) === articles - 5, `collapsed groups hide only their 3+2 cards (${await ev(visibleCards)} of ${articles})`);
+  ok((await ev("[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Show 3 requests')")) === true, "collapsed group shows its count");
+  await clickText("Show 3 requests"); ok((await ev(visibleCards)) === articles - 2, "expanding In scope shows its cards");
+  await clickText("Hide");
+  await ev("[...document.querySelectorAll('[aria-label=\"Filter requests by queue\"] button')].find((b) => b.textContent.includes('Needs change order')).click()"); await sleep(200);
+  ok((await ev(visibleCards)) === 3, `filter: Needs change order shows 3 cards (${await ev(visibleCards)})`);
+  ok((await ev("document.querySelectorAll('article').length")) === articles, "filtering keeps every card in the DOM");
+  await ev("[...document.querySelectorAll('[aria-label=\"Filter requests by queue\"] button')].find((b) => b.textContent.includes('In scope')).click()"); await sleep(200);
+  ok((await ev(visibleCards)) === 3 && (await ev("document.getElementById('list-in_scope').hidden")) === false, "filter: In scope shows its (3) cards even though it is collapsed by default");
+  await ev("[...document.querySelectorAll('[aria-label=\"Filter requests by queue\"] button')].find((b) => b.textContent.startsWith('All')).click()"); await sleep(200);
+  ok((await ev(visibleCards)) === articles - 5, "back to All: collapsed groups collapsed again");
+  ok((await ev("document.documentElement.scrollWidth")) <= width, `${width}: no horizontal page scroll (${await ev("document.documentElement.scrollWidth")})`);
+
+  // tabs (375px): Findings and Thread
+  if (width < 500) {
+    const vis = (sel) => ev(`getComputedStyle(document.querySelector(${JSON.stringify(sel)})).display !== 'none'`);
+    await clickText("Findings"); ok((await vis("aside[aria-label=Thread]")) === false, "Findings tab hides the thread");
+    await clickText("Thread"); ok((await vis("aside[aria-label=Thread]")) === true, "Thread tab shows the thread");
+    await clickText("Findings"); ok((await ev("document.querySelectorAll('article').length")) === articles, "all cards still in the DOM after tab switches");
+  }
+
+  // header and footer
+  ok((await ev("getComputedStyle(document.querySelector('header')).position")) === "sticky", "header is sticky");
+  const links = await ev("[...document.querySelectorAll('header a, footer a')].map((a) => a.getAttribute('href'))");
+  ok(links.includes("https://github.com/AnamulAI/ScopeShield") && links.includes("https://www.anamulhoque.com") && links.some((l) => l.endsWith("#readme")), `header/footer links ${JSON.stringify(links)}`);
+  ok((await ev("[...document.querySelectorAll('a[target=_blank]')].every((a) => a.rel.includes('noopener'))")) === true, "external links use rel=noopener");
+  ok((await ev("document.body.innerText.includes('Powered by Clocked') && document.body.innerText.includes('Built with AI-assisted development (Claude Code)') && document.body.innerText.includes('Sample data is synthetic')")) === true, "credits present");
+  ok((await ev(apiCalls)) === 0, "demo session made no API calls");
 }
 console.log(`\n${checks - failures}/${checks} checks passed`);
 ws.close(); chrome.kill();

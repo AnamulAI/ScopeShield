@@ -40,3 +40,11 @@ export function QueueIcon({ queue, ...p }: P & { queue: Queue }) {
     case "withdrawn": return <DroppedIcon {...p} />;
   }
 }
+
+// Replay controls and small UI marks (same family)
+export const PlayIcon = (p: P) => (<svg {...base} {...p}><path d="M8 5.5v13l10.5-6.5L8 5.5Z" /></svg>);
+export const PauseIcon = (p: P) => (<svg {...base} {...p}><path d="M8.5 5.5v13M15.5 5.5v13" /></svg>);
+export const SkipEndIcon = (p: P) => (<svg {...base} {...p}><path d="M5.5 6v12l9-6-9-6Z" /><path d="M18.5 6v12" /></svg>);
+export const RestartIcon = (p: P) => (<svg {...base} {...p}><path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5" /><path d="M4.5 4.5v4h4" /></svg>);
+export const ExternalIcon = (p: P) => (<svg {...base} {...p}><path d="M9 6H6.5A1.5 1.5 0 0 0 5 7.5v10A1.5 1.5 0 0 0 6.5 19h10a1.5 1.5 0 0 0 1.5-1.5V15" /><path d="M13 5h6v6M19 5l-8 8" /></svg>);
+export const ChevronIcon = (p: P) => (<svg {...base} {...p}><path d="m7 10 5 5 5-5" /></svg>);

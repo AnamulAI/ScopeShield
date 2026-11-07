@@ -36,8 +36,9 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
   const pill = eq !== "pending" ? QUEUES[eq] : null;
   return (
     <article ref={ref} id={`card-${item.id}`} aria-busy={item.status === "running"}
+      onClick={(e) => { if (item.evidence && !(e.target as HTMLElement).closest("button, a, input, textarea, summary, details, label")) onShow(item.id); }}
       style={{ "--i": revealIndex } as React.CSSProperties}
-      className={`rise surface border-l-4 p-5 sm:p-6 ${accent} ${active ? "ring-2 ring-navy/30" : ""}`}>
+      className={`rise surface border-l-4 p-5 hover:border-navy/30 sm:p-6 ${accent} ${active ? "ring-2 ring-navy/30" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {pill ? (
           <span className={`t-eyebrow inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${pill.bg} ${pill.text}`}>

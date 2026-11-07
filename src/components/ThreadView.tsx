@@ -3,11 +3,16 @@ import { describeError } from "../lib/errors";
 import type { Analysis } from "../lib/pipeline";
 import { segmentMessage } from "../lib/thread";
 import { effectiveQueue } from "../lib/routing";
+import { QueueIcon } from "./icons";
 import { QUEUES } from "./queues";
 
-interface Props { analysis: Analysis; openIds: Set<string>; activeId: string | null; onPick: (id: string) => void; onRetryMessage: (messageIndex: number) => void }
+interface Props {
+  analysis: Analysis; openIds: Set<string>; activeId: string | null; onPick: (id: string) => void; onRetryMessage: (messageIndex: number) => void;
+  /** Replay: how many messages are shown. Hidden ones stay in the DOM (layout reserved, no shift) but are inert and invisible. */
+  revealed?: number;
+}
 
-export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage }: Props) {
+export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage, revealed = Infinity }: Props) {
   // Main span = the request; secondary spans = agreement/withdrawal sentence and the quoted price.
   const spans = useMemo(() => {
     const out: { id: string; start: number; end: number }[] = [];
@@ -29,8 +34,11 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
     <ol className="space-y-3" aria-label="Thread with evidence highlighted">
       {analysis.messages.map((m) => {
         const st = stateOf(m.index);
+        const hidden = m.index >= revealed;
+        const mine = analysis.items.filter((i) => i.messageIndex === m.index);
         return (
-          <li key={m.index} id={`msg-${m.index}`} className={`rounded-2xl px-4 py-3 text-[0.9375rem] leading-6 ${m.isClient ? "surface" : "ml-4 border-l-2 border-line pl-4 text-muted sm:ml-8"}`}>
+          <li key={m.index} id={`msg-${m.index}`} data-hidden={hidden ? "true" : undefined} aria-hidden={hidden ? true : undefined} inert={hidden ? true : undefined}
+            className={`replay-item rounded-2xl px-4 py-3 text-[0.9375rem] leading-6 ${hidden ? "is-hidden" : ""} ${m.isClient ? "surface" : "ml-4 border-l-2 border-line pl-4 text-muted sm:ml-8"}`}>
             <div className="mb-0.5 flex items-center justify-between gap-2">
               <span className={`t-eyebrow ${m.isClient ? "text-navy" : "text-muted"}`}>{m.speaker}{m.isClient ? " · client" : ""}</span>
               {st?.status === "running" && <span className="flex items-center gap-1 text-xs text-muted" role="status"><span className="spinner" /> Reading</span>}
@@ -59,6 +67,20 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                 );
               })}
             </p>
+            {mine.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {mine.map((i) => {
+                  const eq = effectiveQueue(i.route, i.decision);
+                  if (eq === "pending") return null;
+                  return (
+                    <button key={i.id} onClick={() => onPick(i.id)} title="Go to this request's card"
+                      className={`chip-in press inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${QUEUES[eq].bg} ${QUEUES[eq].text}`}>
+                      <QueueIcon queue={eq} width={14} height={14} />{QUEUES[eq].label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </li>
         );
       })}
