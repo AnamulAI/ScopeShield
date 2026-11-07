@@ -47,6 +47,7 @@ export default function App() {
     setSnap(null);
     fetch(`/demo/${demoId}.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((s: Snapshot) => {
       if (cancelled) return;
+      s.analysis.usage.price ??= { calls: 0, credits: 0 };
       live.current = s.analysis;
       ran.current = s.inputs;
       setSnap(s);
@@ -157,7 +158,8 @@ export default function App() {
         {analysis && (
           <Results analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
             onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport}
-            recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")} />
+            recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")}
+            askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}
       </main>
     </div>

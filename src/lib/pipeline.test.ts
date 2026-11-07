@@ -71,7 +71,7 @@ describe("buildFillRequest", () => {
     expect(body.text).toContain("Client: hi 😀");
     for (const k of ["price_mentioned", "unpaid_risk", "change_order_message", "next_step"]) expect(body.fields[k].description).toContain(req);
     expect(body.fields.price_mentioned.infer).toBe(false);
-    expect(body.fields.change_order_message.max_tokens).toBe(200);
+    expect(body.fields.change_order_message.max_tokens).toBe(120);
     expect(body.fields.next_step.max_tokens).toBe(60);
   });
   it("threadOffset points at the thread start in code points", () => {
@@ -187,5 +187,51 @@ describe("runSupport", () => {
     item.route = { queue: "agreed_extra", reason: "" };
     await runSupport(a, item, inputs, none, () => {});
     expect(item.support).toMatchObject({ status: "done", text: null, evidence: null });
+  });
+});
+
+import { buildPriceRequest } from "./prompts";
+import { runPrice } from "./pipeline";
+
+describe("Fill rubrics and Decide context", () => {
+  const withCtx = buildFillRequest("C", "Maya: hi", "add a blog", { clientName: "Maya", effort: "Large (a week or more)", agreed: false }).body as any;
+  it("passes Decide's effort and agreement into the shared instructions", () => {
+    expect(withCtx.instructions).toContain("Effort estimate from Decide: Large (a week or more). Agreement to pay found: no.");
+    const yes = buildFillRequest("C", "t", "x", { effort: "Small (under a day)", agreed: true }).body as any;
+    expect(yes.instructions).toContain("Agreement to pay found: yes.");
+    expect((buildFillRequest("C", "t", "x").body as any).instructions).not.toContain("Effort estimate");
+  });
+  it("gives unpaid_risk an explicit rubric that forbids Low for large unpaid work", () => {
+    const d = withCtx.fields.unpaid_risk.description as string;
+    for (const w of ["Low =", "Medium =", "High =", "Critical =", "Never Low when the effort is Large"]) expect(d).toContain(w);
+  });
+  it("constrains the message (70 words, outside agreement, price quoted separately, confirm first) and the next step", () => {
+    const m = withCtx.fields.change_order_message.description as string;
+    for (const w of ["at most 70 words", "first person", "outside the current agreement", "quoted separately", "ONLY if one appears", "confirm before any work starts", "never promise delivery dates".replace("never", "Never")]) expect(m).toContain(w);
+    const n = withCtx.fields.next_step.description as string;
+    expect(n).toContain("imperative sentence");
+    expect(n).toContain("Send Maya a quote for add a blog and wait for a written yes before starting.");
+    expect(n).toContain("the price will be confirmed");
+  });
+  it("builds a price extract anchored to the request", () => {
+    const r = buildPriceRequest("Dev: $120", "add an instagram feed");
+    expect(r.fields.agreed_price.description).toContain("THIS request: add an instagram feed");
+  });
+});
+
+describe("runPrice", () => {
+  const thread = "Client: Instagram feed please\nDev: $120 for the feed widget\nClient: yes please go ahead";
+  it("shows only what Extract returns, with verified evidence; null means none found", async () => {
+    const q = "$120 for the feed widget";
+    const start = Array.from(thread.slice(0, thread.indexOf(q))).length;
+    const ok = clientFor([{ fields: { agreed_price: { value: q, start, end: start + Array.from(q).length, confidence: 1 } } }]);
+    const { a, item } = blank();
+    await runPrice(a, item, { ...inputs, thread }, ok, () => {});
+    expect(item.agreedPrice).toMatchObject({ status: "done", value: q, evidence: { start, end: start + Array.from(q).length } });
+    expect(a.usage.price.credits).toBe(8);
+    const none = clientFor([{ fields: { agreed_price: { value: null, confidence: 1 } } }]);
+    const b = blank();
+    await runPrice(b.a, b.item, { ...inputs, thread }, none, () => {});
+    expect(b.item.agreedPrice).toMatchObject({ status: "done", value: null, evidence: null });
   });
 });

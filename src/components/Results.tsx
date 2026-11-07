@@ -13,12 +13,16 @@ interface Props {
   onDecide: (id: string, d: Decision | undefined) => void; onPrepare: (id: string) => void; onPrepareAll: () => void;
   onRegenerate: (id: string) => void; onRetrySupport: (id: string) => void;
   recorded?: boolean; onSwitchDemo?: () => void;
+  /** Demo only: shown when the current sample has no Ask me item. */
+  askHint?: { onOpen: () => void };
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, recorded, onSwitchDemo }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, recorded, onSwitchDemo, askHint }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
+  const [openCO, setOpenCO] = useState<Set<string>>(new Set());
+  const setCoOpen = (id: string, v: boolean) => setOpenCO((prev) => { const n = new Set(prev); if (v) n.add(id); else n.delete(id); return n; });
 
   const groups = useMemo(() => {
     const g = new Map<Queue | "pending", typeof analysis.items>();
@@ -52,7 +56,8 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const total = analysis.items.length;
   const card = (item: (typeof analysis.items)[number]) => (
     <RequestCard key={item.id} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
-      onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => onDecide(item.id, d)}
+      coOpen={openCO.has(item.id)} setCoOpen={(v) => setCoOpen(item.id, v)}
+      onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => { if (d === "extra") setCoOpen(item.id, true); onDecide(item.id, d); }}
       onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} />
   );
   const preparable = (groups.get("needs_change_order") ?? []).filter((i) => i.status === "done" && (!i.changeOrder || i.changeOrder.status === "failed"));
@@ -108,6 +113,12 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
               {groups.get("pending")!.map(card)}
             </div>
           )}
+          {askHint && finished && !groups.get("ask_me")?.length && (
+            <p className="rounded-lg border border-dashed border-ask/40 bg-ask-bg/30 px-3 py-2 text-xs text-muted">
+              No Ask me items in this thread.{" "}
+              <button onClick={askHint.onOpen} className="font-medium text-ask underline underline-offset-4">See an Ask me example in the Brand identity sample</button>
+            </p>
+          )}
           {QUEUE_ORDER.filter((q) => groups.get(q)?.length).map((q) => (
             <div key={q} className="space-y-3">
               <div className="flex flex-wrap items-end justify-between gap-2">
@@ -133,7 +144,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
       </div>
 
       <footer className="border-t border-line pt-3 text-xs text-muted">
-        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, change orders {analysis.usage.fill.credits}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
+        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, change orders {analysis.usage.fill.credits}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
       </footer>
     </section>
   );

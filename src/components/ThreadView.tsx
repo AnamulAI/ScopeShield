@@ -14,6 +14,7 @@ export function ThreadView({ analysis, activeId, onPick, onRetryMessage }: Props
     for (const i of analysis.items) {
       if (i.evidence) out.push({ id: i.id, ...i.evidence });
       if (i.support?.evidence) out.push({ id: `${i.id}:support`, ...i.support.evidence });
+      if (i.agreedPrice?.evidence) out.push({ id: `${i.id}:agreedprice`, ...i.agreedPrice.evidence });
       const pe = i.changeOrder?.data?.priceEvidence;
       if (pe) out.push({ id: `${i.id}:price`, ...pe });
     }
@@ -47,7 +48,7 @@ export function ThreadView({ analysis, activeId, onPick, onRetryMessage }: Props
                 const eq = effectiveQueue(item.route, item.decision);
                 const q = eq !== "pending" ? QUEUES[eq] : null;
                 const withdrawn = eq === "withdrawn";
-                const secondary = sub === "support" ? (item.support?.kind === "agreement" ? "Agreement sentence" : "Withdrawal sentence") : sub === "price" ? "Price quoted" : null;
+                const secondary = sub === "support" ? (item.support?.kind === "agreement" ? "Agreement sentence" : "Withdrawal sentence") : sub === "price" ? "Price quoted" : sub === "agreedprice" ? "Agreed price" : null;
                 return (
                   <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={secondary ?? (q ? q.label : "Checking")}
                     className={`cursor-pointer rounded-sm px-0.5 text-ink ${secondary ? "border-b-2 border-dashed border-ink bg-card font-medium ring-1 ring-ink/20" : `border-b-2 ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"}`} ${withdrawn && !secondary ? "line-through" : ""} ${activeId === seg.id ? "flash outline outline-2 outline-navy" : ""}`}>

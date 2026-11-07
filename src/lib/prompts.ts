@@ -59,7 +59,7 @@ export function buildDecideRequest(contract: string, thread: string, request: st
 }
 
 export const FILL_INSTRUCTIONS =
-  "Use ONLY this thread. Never invent prices, dates, or approvals. Be polite and non-accusatory. If no price was stated for the request, say the price will be confirmed.";
+  "Use ONLY this thread. Never invent prices, dates, or approvals. Be polite and non-accusatory. If no price was stated for the request, say the price will be quoted separately.";
 
 export interface FillRequest {
   body: unknown;
@@ -67,23 +67,41 @@ export interface FillRequest {
   threadOffset: number;
 }
 
-/** Source = contract + FULL thread + final anchor line. The request text is injected into every field description. */
 export const STRICT_FILL_SUFFIX = " Do not write any currency amount unless that exact amount is written in the thread.";
 
-export function buildFillRequest(contract: string, thread: string, request: string, strict = false): FillRequest {
+export interface FillOptions {
+  /** One Regenerate attempt after an invented-amount block. */
+  strict?: boolean;
+  clientName?: string;
+  /** Decide's effort band for this request, e.g. "Large (a week or more)". */
+  effort?: string;
+  /** Decide's answer: did the client clearly agree to pay? */
+  agreed?: boolean;
+}
+
+export const RISK_RUBRIC =
+  "Low = trivial effort, or an agreement to pay exists. Medium = under about a day of work with no agreement. High = several days of work with no agreement. Critical = a week or more of work with no agreement. Never Low when the effort is Large and no agreement exists.";
+
+/** Source = contract + FULL thread + final anchor line. The request text is injected into every field description. */
+export function buildFillRequest(contract: string, thread: string, request: string, opts: FillOptions = {}): FillRequest {
   const prefix = `AGREED CONTRACT / SCOPE:\n${contract}\n\nTHREAD:\n`;
   const r = `"${request}"`;
+  const client = opts.clientName?.trim() || "the client";
+  const decide =
+    opts.effort !== undefined || opts.agreed !== undefined
+      ? ` Effort estimate from Decide: ${opts.effort ?? "unknown"}. Agreement to pay found: ${opts.agreed === undefined ? "unknown" : opts.agreed ? "yes" : "no"}.`
+      : "";
   return {
     threadOffset: cpLength(prefix),
     body: {
       text: `${prefix}${thread}\n\nREQUEST TO FILL: ${request}`,
-      instructions: strict ? FILL_INSTRUCTIONS + STRICT_FILL_SUFFIX : FILL_INSTRUCTIONS,
+      instructions: FILL_INSTRUCTIONS + decide + (opts.strict ? STRICT_FILL_SUFFIX : ""),
       fields: {
         category: { type: "choice", options: ["new_feature", "revision", "bug_fix", "other"] },
         unpaid_risk: {
           type: "score",
           levels: ["Low", "Medium", "High", "Critical"],
-          description: `Risk that the developer does the work for ${r} without being paid, given what the client has and has not agreed to.`,
+          description: `Risk that the freelancer does the work for ${r} without being paid. ${RISK_RUBRIC}`,
         },
         price_mentioned: {
           type: "extract",
@@ -93,17 +111,25 @@ export function buildFillRequest(contract: string, thread: string, request: stri
         change_order_message: {
           type: "generate",
           format: "text",
-          max_tokens: 200,
-          description: `A short, polite message to the client proposing a change order for ${r} and mentioning that request specifically. If no price was stated, say the price will be confirmed. Do not mention any other request.`,
+          max_tokens: 120,
+          description: `Plain text, at most 70 words, first person as the freelancer, polite and non-accusatory, about ${r} only. (a) Say clearly that this request is outside the current agreement. (b) Say the price will be quoted separately; state a price ONLY if one appears in the thread for this request. (c) Ask the client to confirm before any work starts. Never promise delivery dates, never invent prices, and never say or imply that you will simply do the work for free.`,
         },
         next_step: {
           type: "generate",
           format: "text",
           max_tokens: 60,
-          description: `One short sentence: the next step for the freelancer regarding ${r}.`,
+          description: `Exactly one imperative sentence addressed to the freelancer (use "you" or no subject), specific to ${r}, in the form: "Send ${client} a quote for ${r.slice(1, -1)} and wait for a written yes before starting." No third person, and no vague phrases such as "the price will be confirmed".`,
         },
       },
     },
+  };
+}
+
+/** Extract over the FULL thread for the price the developer quoted for ONE request (shown on AGREED EXTRA cards). */
+export function buildPriceRequest(thread: string, request: string) {
+  return {
+    text: thread,
+    fields: { agreed_price: { description: `The price the developer quoted for THIS request: ${request}. Only a specific amount with a currency. Null if no price was quoted for it.` } },
   };
 }
 

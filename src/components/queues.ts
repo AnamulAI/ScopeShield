@@ -3,7 +3,7 @@ import type { Queue } from "../lib/routing";
 export interface QueueMeta { label: string; blurb: string; text: string; bg: string; border: string }
 
 // Order shown in the results.
-export const QUEUE_ORDER: Queue[] = ["needs_change_order", "ask_me", "in_scope", "agreed_extra", "withdrawn"];
+export const QUEUE_ORDER: Queue[] = ["needs_change_order", "ask_me", "agreed_extra", "in_scope", "withdrawn"];
 
 export const QUEUES: Record<Queue, QueueMeta> = {
   needs_change_order: { label: "Needs change order", blurb: "Outside the contract and no agreement to pay was found.", text: "text-change", bg: "bg-change-bg", border: "border-change" },

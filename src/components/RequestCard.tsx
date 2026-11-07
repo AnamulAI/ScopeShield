@@ -1,13 +1,12 @@
 import { describeError } from "../lib/errors";
 import { forwardRef } from "react";
 import type { RequestItem } from "../lib/pipeline";
+import { effortLabel } from "../lib/health";
 import { askQuestion, effectiveQueue, THRESHOLDS, type Decision } from "../lib/routing";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { ProbBar } from "./ProbBar";
 import { QUEUES } from "./queues";
 
-const EFFORT = ["Trivial (minutes)", "Small (under a day)", "Medium (a few days)", "Large (a week or more)"];
-const effortLabel = (score: number) => EFFORT[Math.min(3, Math.max(0, Math.round(score)))];
 const DECISION_LABEL: Record<Decision, string> = { in_scope: "In scope", extra: "Extra work", skip: "Skipped for now" };
 
 export interface CardActions {
@@ -18,11 +17,11 @@ export interface CardActions {
   onRegenerate: () => void;
   onRetrySupport: () => void;
 }
-interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string }
+interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string; coOpen: boolean; setCoOpen: (v: boolean) => void }
 
 const btn = "rounded-lg border px-4 py-2 text-sm font-semibold transition";
 
-export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport }, ref) {
+export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport }, ref) {
   const eq = effectiveQueue(item.route, item.decision);
   const modelQ = item.route ? QUEUES[item.route.queue] : null;
   const withdrawn = eq === "withdrawn";
@@ -54,7 +53,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
             <ProbBar label="Later withdrawn" value={v.withdrawn} ticks={[THRESHOLDS.withdrawn]} tone="bg-withdrawn" hint="Tick at 75%." />
           </div>
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-            <span>Tagged: <b className="font-medium text-ink">{v.kind.replace("_", " ")}</b></span>
+            {eq !== "in_scope" && eq !== "withdrawn" && <span>Tagged: <b className="font-medium text-ink">{v.kind.replace("_", " ")}</b></span>}
             <span>Rough effort estimate: <b className="font-medium text-ink">{effortLabel(v.effort)}</b></span>
           </p>
         </>
@@ -99,11 +98,24 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
         </div>
       )}
       {item.route?.queue === "agreed_extra" && (
-        <p className="mt-3 rounded-lg bg-agreed-bg px-3 py-2 text-sm text-agreed"><b>Make sure this is invoiced.</b> The client agreed to pay, but nothing here shows it was billed.</p>
+        <div className="mt-3 rounded-lg bg-agreed-bg px-3 py-2 text-sm text-agreed">
+          <p>
+            <b>Agreed price:</b>{" "}
+            {item.agreedPrice?.status === "running" && <span className="inline-flex items-center gap-1.5" role="status"><span className="spinner" /> Looking for the price…</span>}
+            {item.agreedPrice?.status === "failed" && <span>could not be looked up.</span>}
+            {item.agreedPrice?.status === "done" && (item.agreedPrice.value ? (
+              <>
+                <b>{item.agreedPrice.value}</b>{" "}
+                {item.agreedPrice.evidence && <button onClick={() => onShow(`${item.id}:agreedprice`)} className="text-xs font-medium underline underline-offset-4">Show in thread</button>}
+              </>
+            ) : <em>No price found in the thread</em>)}
+          </p>
+          <p className="mt-1"><b>Make sure this is invoiced.</b> The client agreed to pay, but nothing here shows it was billed.</p>
+        </div>
       )}
 
       {eq === "needs_change_order" && item.status === "done" && (
-        <ChangeOrderPanel item={item} onPrepare={onPrepare} onRegenerate={onRegenerate} onShowPrice={() => onShow(`${item.id}:price`)} />
+        <ChangeOrderPanel item={item} open={coOpen} setOpen={setCoOpen} onPrepare={onPrepare} onRegenerate={onRegenerate} onShowPrice={() => onShow(`${item.id}:price`)} />
       )}
 
       {item.evidence && (

@@ -12,6 +12,10 @@ export function effortBand(score: number): Band {
   return { min: 40, max: null, label: "40 h or more" };
 }
 
+const EFFORT_LABELS = ["Trivial (minutes)", "Small (under a day)", "Medium (a few days)", "Large (a week or more)"];
+/** Name of Decide's effort level nearest to the expected score (0-3). */
+export const effortLabel = (score: number): string => EFFORT_LABELS[Math.min(3, Math.max(0, Math.round(score)))];
+
 export interface Hours { min: number; max: number | null; items: number }
 const addHours = (acc: Hours, b: Band): Hours => ({ min: acc.min + b.min, max: acc.max === null || b.max === null ? null : acc.max + b.max, items: acc.items + 1 });
 

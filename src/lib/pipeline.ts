@@ -3,8 +3,9 @@ import type { ClockedClient } from "./clocked";
 import { ClockedError, type ErrorKind } from "./clocked";
 import type { ClockedUsage, DecideNoul, DecideResponse, ExtractResponse, FillResponse } from "./clocked-types";
 import { inventedAmounts } from "./checks";
-import { buildDecideRequest, buildExtractRequest, buildFillRequest, buildSupportRequest } from "./prompts";
-import { route, type Decision, type RouteResult } from "./routing";
+import { effortLabel } from "./health";
+import { buildDecideRequest, buildExtractRequest, buildFillRequest, buildPriceRequest, buildSupportRequest } from "./prompts";
+import { route, THRESHOLDS, type Decision, type RouteResult } from "./routing";
 import { cpLength, parseThread, sliceCp, toThreadOffsets, type Message } from "./thread";
 
 export type Status = "pending" | "running" | "done" | "failed";
@@ -34,6 +35,8 @@ export interface RequestItem {
   decision?: Decision;
   /** Sentence supporting an AGREED EXTRA (agreement) or WITHDRAWN (withdrawal) verdict. */
   support?: Support;
+  /** AGREED EXTRA only: the price the developer quoted for THIS request (Extract); null value = none found. */
+  agreedPrice?: AgreedPrice;
   changeOrder?: ChangeOrderState;
 }
 
@@ -45,6 +48,8 @@ export interface Support {
   evidence?: { start: number; end: number } | null;
 }
 
+export interface AgreedPrice { status: Status; value?: string | null; evidence?: { start: number; end: number } | null }
+
 export interface ChangeOrderState { status: Status; data?: ChangeOrder; error?: string; errorKind?: ErrorKind; /** one Regenerate attempt only */ regenerated: boolean }
 
 export interface MessageState { messageIndex: number; status: Status; error?: string; errorKind?: ErrorKind; requestCount?: number }
@@ -53,13 +58,15 @@ export interface Analysis {
   messages: Message[];
   messageStates: MessageState[];
   items: RequestItem[];
-  usage: Record<"extract" | "decide" | "fill", { calls: number; credits: number }>;
+  /** extract = reading messages + agreement/withdrawal sentence lookups; price = agreed-price lookups (Extract); */
+  usage: Record<"extract" | "decide" | "fill" | "price", { calls: number; credits: number }>;
 }
 
-export const emptyUsage = (): Analysis["usage"] => ({ extract: { calls: 0, credits: 0 }, decide: { calls: 0, credits: 0 }, fill: { calls: 0, credits: 0 } });
-export const totalCredits = (u: Analysis["usage"]) => u.extract.credits + u.decide.credits + u.fill.credits;
+export const emptyUsage = (): Analysis["usage"] => ({ extract: { calls: 0, credits: 0 }, decide: { calls: 0, credits: 0 }, fill: { calls: 0, credits: 0 }, price: { calls: 0, credits: 0 } });
+export const totalCredits = (u: Analysis["usage"]) => u.extract.credits + u.decide.credits + u.fill.credits + (u.price?.credits ?? 0);
 
 const addUsage = (a: Analysis, ep: keyof Analysis["usage"], u: ClockedUsage | null) => {
+  a.usage[ep] ??= { calls: 0, credits: 0 };
   a.usage[ep].calls++;
   a.usage[ep].credits += u?.credits ?? 0;
 };
@@ -119,7 +126,8 @@ export async function runDecide(a: Analysis, item: RequestItem, inputs: Inputs, 
     item.status = "done";
     emit();
     const q = d.route.queue;
-    if (q === "agreed_extra" || q === "withdrawn") await runSupport(a, item, inputs, client, emit);
+    if (q === "agreed_extra") await Promise.all([runSupport(a, item, inputs, client, emit), runPrice(a, item, inputs, client, emit)]);
+    else if (q === "withdrawn") await runSupport(a, item, inputs, client, emit);
     return;
   } catch (e) {
     item.status = "failed";
@@ -143,6 +151,23 @@ export async function runSupport(a: Analysis, item: RequestItem, inputs: Inputs,
     item.support = { kind, status: "done", text: v, evidence: ok ? { start: f!.start!, end: f!.end! } : null };
   } catch {
     item.support = { kind, status: "failed" };
+  }
+  emit();
+}
+
+/** Finds the price the developer quoted for THIS agreed extra (Extract over the full thread). Display only what Extract returns. */
+export async function runPrice(a: Analysis, item: RequestItem, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  item.agreedPrice = { status: "running" };
+  emit();
+  try {
+    const { data, usage } = await client.call<ExtractResponse>("extract", buildPriceRequest(inputs.thread, item.text));
+    addUsage(a, "price", usage);
+    const f = data.fields?.agreed_price;
+    const v = typeof f?.value === "string" && f.value.trim() !== "" ? f.value : null;
+    const ok = v !== null && typeof f?.start === "number" && typeof f?.end === "number" && sliceCp(inputs.thread, f.start, f.end) === v;
+    item.agreedPrice = { status: "done", value: v, evidence: ok ? { start: f!.start!, end: f!.end! } : null };
+  } catch {
+    item.agreedPrice = { status: "failed" };
   }
   emit();
 }
@@ -205,8 +230,15 @@ export interface ChangeOrder {
   usage: ClockedUsage | null;
 }
 
-export async function fillChangeOrder(client: ClockedClient, inputs: Inputs, request: string, strict = false): Promise<ChangeOrder> {
-  const { body, threadOffset } = buildFillRequest(inputs.contract, inputs.thread, request, strict);
+export interface FillContext { effortScore?: number; agreed?: boolean }
+
+export async function fillChangeOrder(client: ClockedClient, inputs: Inputs, request: string, strict = false, ctx: FillContext = {}): Promise<ChangeOrder> {
+  const { body, threadOffset } = buildFillRequest(inputs.contract, inputs.thread, request, {
+    strict,
+    clientName: inputs.clientName,
+    effort: ctx.effortScore === undefined ? undefined : effortLabel(ctx.effortScore),
+    agreed: ctx.agreed,
+  });
   const { data, usage } = await client.call<FillResponse>("fill", body);
   const f = data.fields;
   if (!f) throw shapeError("fill");
@@ -240,7 +272,8 @@ export async function runFill(a: Analysis, item: RequestItem, inputs: Inputs, cl
   item.changeOrder = { status: "running", regenerated: regenerate || (prev?.regenerated ?? false), data: regenerate ? undefined : prev?.data };
   emit();
   try {
-    const data = await fillChangeOrder(client, inputs, item.text, regenerate);
+    const v = item.verdict;
+    const data = await fillChangeOrder(client, inputs, item.text, regenerate, v ? { effortScore: v.effort, agreed: v.paid >= THRESHOLDS.paidYes } : {});
     addUsage(a, "fill", data.usage);
     item.changeOrder = { status: "done", data, regenerated: item.changeOrder.regenerated };
   } catch (e) {

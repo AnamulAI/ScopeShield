@@ -6,15 +6,16 @@ const Chip = () => (
   <span className="rounded-full border border-ask/30 bg-ask-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ask">AI-generated draft</span>
 );
 
-interface Props { item: RequestItem; onPrepare: () => void; onRegenerate: () => void; onShowPrice: () => void }
+interface Props { item: RequestItem; open: boolean; setOpen: (v: boolean) => void; onPrepare: () => void; onRegenerate: () => void; onShowPrice: () => void }
 
-export function ChangeOrderPanel({ item, onPrepare, onRegenerate, onShowPrice }: Props) {
+export function ChangeOrderPanel({ item, open, setOpen, onPrepare, onRegenerate, onShowPrice }: Props) {
   const st = item.changeOrder;
+  // Collapsed by default to keep cards compact (state lives in Results so it survives the card moving between queues).
 
   if (!st) {
     return (
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
-        <button onClick={onPrepare} className="rounded-md bg-navy px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-navy/90">Prepare change order</button>
+        <button onClick={() => { setOpen(true); onPrepare(); }} className="rounded-md bg-navy px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-navy/90">Prepare change order</button>
         <span className="text-xs text-muted">One Fill call, about 8 credits.</span>
       </div>
     );
@@ -44,8 +45,19 @@ export function ChangeOrderPanel({ item, onPrepare, onRegenerate, onShowPrice }:
       </div>
     );
 
+  const anyInvented = co.inventedMessage.length > 0 || co.inventedNextStep.length > 0;
   return (
-    <section aria-label="Change order" className="mt-4 space-y-4 border-t border-line pt-4" aria-busy={st.status === "running"}>
+    <div className="mt-4 border-t border-line pt-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={`co-${item.id}`}
+          className="rounded-md border border-navy/30 bg-card px-3.5 py-1.5 text-sm font-semibold text-navy hover:border-navy">
+          {open ? "Hide change order" : "View change order"}
+        </button>
+        <span className="text-xs text-muted">Draft ready · AI-generated</span>
+        {anyInvented && !open && <span role="alert" className="text-xs font-medium text-change">Copy blocked: the draft mentions an amount that is not in the thread. Open it for details.</span>}
+      </div>
+    {open && (
+    <section id={`co-${item.id}`} aria-label="Change order" className="mt-4 space-y-4" aria-busy={st.status === "running"}>
       <h4 className="font-display text-base">Change order</h4>
       <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5 text-sm">
         <dt className="text-muted">Request</dt><dd>{item.text}</dd>
@@ -80,5 +92,7 @@ export function ChangeOrderPanel({ item, onPrepare, onRegenerate, onShowPrice }:
         <span className="text-xs text-muted">Generated text is a draft. Read it before you send it.</span>
       </div>
     </section>
+    )}
+    </div>
   );
 }
