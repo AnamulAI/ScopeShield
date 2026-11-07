@@ -5,6 +5,8 @@
 //     fill = Fill (+ its Verify), price = agreed-price extracts, verify = Verify on the already recorded drafts
 //   npm run snapshot -- bakery             full run for one sample id
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+
+const LIVE_MARK = "<!-- live-run -->"; // everything after this marker in docs/credit-usage.md is hand-written and survives a re-record
 import { createClockedClient } from "../src/lib/clocked";
 import type { Snapshot } from "../src/lib/demo";
 import { analyze, emptyUsage, runFill, runPrice, runVerify, totalCredits, type Analysis } from "../src/lib/pipeline";
@@ -86,6 +88,8 @@ for (const s of SAMPLES.filter((x) => !sampleId || x.id === sampleId)) {
 }
 
 if (!sampleId) {
+  const prev = existsSync("docs/credit-usage.md") ? readFileSync("docs/credit-usage.md", "utf8") : "";
+  const keep = prev.includes(LIVE_MARK) ? prev.slice(prev.indexOf(LIVE_MARK)) : "";
   writeFileSync("public/demo/index.json", JSON.stringify(index));
   writeFileSync(
     "docs/credit-usage.md",
@@ -100,6 +104,6 @@ if (!sampleId) {
       ...rows,
       ``,
       ...(only ? [`Last partial re-record (\`--only ${[...only].join(",")}\`) spent ${rerunCredits} credits in total; Extract and Decide results were kept from the earlier full run.`, ``] : []),
-    ].join("\n"),
+    ].join("\n") + (keep ? "\n" + keep : ""),
   );
 }
