@@ -4,6 +4,8 @@ interface Env {
   RATE_LIMIT?: KVNamespace; // required: per-IP and global daily caps
   /** Dev-only switch. Exactly "1" disables the daily caps (for local evals/snapshots). Comes ONLY from the environment (.dev.vars or Pages env), never from the request. */
   ALLOW_UNLIMITED_LOCAL?: string;
+  /** Optional comma-separated exact origins (e.g. "https://app.example.com") allowed in addition to the request's own host. Environment only. */
+  ALLOWED_ORIGINS?: string;
 }
 
 const ALLOWED = new Set(["decide", "extract", "fill", "grounding"]);
@@ -17,14 +19,32 @@ const PASS_HEADERS = ["content-type", "x-clocked-credits", "x-clocked-cost-usd",
 const json = (status: number, error: string, code?: string, extra: HeadersInit = {}) =>
   new Response(JSON.stringify({ error, ...(code ? { code } : {}) }), { status, headers: { "content-type": "application/json", ...extra } });
 
-/** Browsers always send Origin on cross-origin POSTs. No Origin = non-browser client (e.g. smoke script). */
-export function originAllowed(origin: string | null, requestUrl: string): boolean {
+/**
+ * Browsers always send Origin on cross-origin POSTs. No Origin = non-browser client (e.g. the smoke script).
+ * Allowed: the request's own host (so the *.pages.dev domain and any custom domain work with no code change),
+ * plus an optional comma-separated ALLOWED_ORIGINS env var of exact origins (for a separately hosted front end).
+ * Nothing the caller controls adds to the list.
+ */
+export function originAllowed(origin: string | null, requestUrl: string, allowedOrigins?: string): boolean {
   if (!origin) return true;
+  let o: URL;
   try {
-    return new URL(origin).host === new URL(requestUrl).host;
+    o = new URL(origin);
   } catch {
     return false;
   }
+  if (o.host === new URL(requestUrl).host) return true;
+  return (allowedOrigins ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .some((x) => {
+      try {
+        return new URL(x).origin === o.origin;
+      } catch {
+        return false;
+      }
+    });
 }
 
 const day = (now: Date) => now.toISOString().slice(0, 10); // UTC day
@@ -69,7 +89,7 @@ let warnedMissingBinding = false;
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   const endpoint = String(params.endpoint ?? "");
   if (!ALLOWED.has(endpoint)) return json(404, "Unknown endpoint");
-  if (!originAllowed(request.headers.get("Origin"), request.url)) return json(403, "Cross-origin request rejected");
+  if (!originAllowed(request.headers.get("Origin"), request.url, env.ALLOWED_ORIGINS)) return json(403, "Cross-origin request rejected");
   if (!env.CLOCKED_API_KEY) return json(500, "Live mode is not configured on this server.");
 
   const idempotencyKey = request.headers.get("Idempotency-Key");

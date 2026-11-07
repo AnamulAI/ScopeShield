@@ -13,15 +13,30 @@ const kv = () => new FakeKV() as unknown as KVNamespace & FakeKV;
 const T = new Date("2026-11-08T10:00:00Z");
 
 describe("originAllowed", () => {
-  it("allows same-origin (including the deployed pages.dev host) and missing Origin", () => {
-    expect(originAllowed("https://app.example.com", "https://app.example.com/api/clocked/decide")).toBe(true);
-    expect(originAllowed("https://scopeshield.pages.dev", "https://scopeshield.pages.dev/api/clocked/decide")).toBe(true);
+  const URL_ = "https://scopeshield.pages.dev/api/clocked/decide";
+  it("allows the request's own host: pages.dev, preview and custom domains, with no list to maintain", () => {
+    expect(originAllowed("https://scopeshield.pages.dev", URL_)).toBe(true);
     expect(originAllowed("https://abc123.scopeshield.pages.dev", "https://abc123.scopeshield.pages.dev/api/clocked/fill")).toBe(true);
-    expect(originAllowed(null, "https://app.example.com/api/clocked/decide")).toBe(true);
+    expect(originAllowed("https://scope.example.com", "https://scope.example.com/api/clocked/decide")).toBe(true);
   });
-  it("rejects cross-origin and malformed", () => {
-    expect(originAllowed("https://evil.example", "https://scopeshield.pages.dev/api/clocked/decide")).toBe(false);
-    expect(originAllowed("not a url", "https://app.example.com/x")).toBe(false);
+  it("handles a missing Origin as before (non-browser clients are allowed)", () => {
+    expect(originAllowed(null, URL_)).toBe(true);
+    expect(originAllowed(null, URL_, "https://a.example")).toBe(true);
+  });
+  it("blocks foreign and malformed origins", () => {
+    expect(originAllowed("https://evil.example", URL_)).toBe(false);
+    expect(originAllowed("https://scopeshield.pages.dev.evil.example", URL_)).toBe(false);
+    expect(originAllowed("not a url", URL_)).toBe(false);
+  });
+  it("ALLOWED_ORIGINS adds exact origins only (scheme, host and port must match)", () => {
+    const env = "https://app.example.com, https://other.example:8443 ,   ,not-a-url";
+    expect(originAllowed("https://app.example.com", URL_, env)).toBe(true);
+    expect(originAllowed("https://other.example:8443", URL_, env)).toBe(true);
+    expect(originAllowed("http://app.example.com", URL_, env)).toBe(false);
+    expect(originAllowed("https://other.example", URL_, env)).toBe(false);
+    expect(originAllowed("https://evil.example", URL_, env)).toBe(false);
+    expect(originAllowed("https://evil.example", URL_, "")).toBe(false);
+    expect(originAllowed("https://evil.example", URL_, undefined)).toBe(false);
   });
 });
 
@@ -86,6 +101,13 @@ const ctx = (url: string, env: Record<string, unknown>, init: RequestInit = {}) 
 afterEach(() => vi.restoreAllMocks());
 
 describe("onRequestPost", () => {
+  it("ALLOWED_ORIGINS comes from env only: a request header cannot add an origin", async () => {
+    const r = await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() }, { headers: { Origin: "https://evil.example", "x-allowed-origins": "https://evil.example" } }));
+    expect(r.status).toBe(403);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    const ok = await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: kv(), ALLOWED_ORIGINS: "https://app.example.com" }, { headers: { Origin: "https://app.example.com" } }));
+    expect(ok.status).toBe(200);
+  });
   it("rejects cross-origin browser requests before doing anything else", async () => {
     const r = await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() }, { headers: { Origin: "https://evil.example" } }));
     expect(r.status).toBe(403);

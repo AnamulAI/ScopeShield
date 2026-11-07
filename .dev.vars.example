@@ -1,3 +1,5 @@
 CLOCKED_API_KEY=
 # Dev only: set to exactly 1 to disable the daily caps locally (evals, snapshots). Never set it in production.
 # ALLOW_UNLIMITED_LOCAL=1
+# Optional: extra allowed browser origins for the proxy (comma separated, exact origins). The request's own host is always allowed.
+# ALLOWED_ORIGINS=https://app.example.com
