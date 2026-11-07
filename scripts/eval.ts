@@ -86,7 +86,7 @@ const md = [
   `| fill | ${calls.fill} | ${credits.fill} |`,
   `| **Total** | ${calls.extract + calls.decide + calls.fill} | **${total}** |`,
   ``,
-].join("\n");
+].join("\n") + "\n" + readFileSync("docs/eval-notes.md", "utf8");
 writeFileSync("docs/eval-results.md", md);
 console.log(md);
 process.exit(passed === results.length ? 0 : 1);

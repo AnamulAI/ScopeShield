@@ -199,6 +199,18 @@
       "expect": {
         "maxItems": 0
       }
+    },
+    {
+      "id": "extract-polite-question",
+      "kind": "extract",
+      "message": "Thanks! Can you change the banner colour to dark green? The current one is too bright.",
+      "expect": {
+        "minItems": 1,
+        "maxItems": 1,
+        "contains": [
+          "banner"
+        ]
+      }
     }
   ]
 }

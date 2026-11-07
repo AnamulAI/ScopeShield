@@ -10,7 +10,7 @@ export function buildExtractRequest(messageText: string) {
     fields: {
       client_requests: {
         description:
-          "Each separate NEW thing the client asks the developer to build or change, as a short noun phrase. Do NOT include: confirmations or acceptances of an earlier request (e.g. 'go ahead', 'sounds good'), cancellations or withdrawals, thanks, questions about price or timing, or anything the developer says.",
+          "Each separate thing the client asks the developer to build or change (new work or a change to existing work, e.g. a colour or text change), as a short phrase copied verbatim from the message. Polite questions such as 'Can you change X?' or 'Could you add Y?' ARE requests. Do NOT include: confirmations or acceptances of an earlier request (e.g. 'go ahead', 'sounds good'), cancellations or withdrawals, thanks, questions about price or timing, or anything the developer says.",
         list: true,
         max_items: 8,
       },
