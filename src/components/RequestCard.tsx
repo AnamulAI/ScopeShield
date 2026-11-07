@@ -30,55 +30,72 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
   const v = item.verdict;
   const needsAnswer = item.route?.queue === "ask_me" && (item.decision === undefined);
 
+  const accent = eq === "pending" ? "border-l-line" : QUEUES[eq].accent;
+  const pill = eq !== "pending" ? QUEUES[eq] : null;
   return (
     <article ref={ref} id={`card-${item.id}`} aria-busy={item.status === "running"}
-      className={`rounded-xl border bg-card p-4 shadow-[0_1px_0_rgb(0_0_0/.03)] transition ${active ? "border-navy ring-2 ring-navy/20" : "border-line"}`}>
-      <div className="flex items-start justify-between gap-3">
-        <p className={`font-display text-[1.05rem] leading-snug ${withdrawn ? "text-muted line-through decoration-withdrawn" : ""}`}>{item.text}</p>
+      className={`rise surface border-l-4 p-5 transition sm:p-6 ${accent} ${active ? "ring-2 ring-navy/30" : ""}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        {pill ? (
+          <span className={`t-eyebrow inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${pill.bg} ${pill.text}`}>
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />{pill.label}{item.decision && item.route?.queue === "ask_me" ? " · your decision" : ""}
+          </span>
+        ) : <span className="t-eyebrow text-muted">Checking</span>}
+        <span className="text-xs text-muted">{speaker} · message {item.messageIndex + 1}{item.evidence ? "" : " · exact sentence could not be located"}</span>
+      </div>
+
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <p className={`font-display text-[1.1875rem] leading-snug ${withdrawn ? "text-muted line-through decoration-withdrawn/70" : ""}`}>{item.text}</p>
         {item.status === "running" && <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted" role="status"><span className="spinner" /> Checking</span>}
       </div>
-      <p className="mt-1 text-xs text-muted">{speaker} · message {item.messageIndex + 1}{item.evidence ? "" : " · exact sentence could not be located"}</p>
 
       {item.status === "failed" && (
-        <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-change/30 bg-change-bg/60 px-3 py-2 text-sm">
-          <span className="text-change"><b>{describeError(item.errorKind, item.error).title}</b> {describeError(item.errorKind, item.error).hint}</span>
-          <button onClick={onRetry} className="rounded-md bg-navy px-3 py-1 text-xs font-medium text-white hover:bg-navy/90">Retry</button>
+        <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-change/30 bg-change-bg px-4 py-3 text-sm">
+          <span className="text-ink"><b className="text-change">{describeError(item.errorKind, item.error).title}</b> {describeError(item.errorKind, item.error).hint}</span>
+          <button onClick={onRetry} className="rounded-lg bg-navy px-4 py-1.5 text-xs font-semibold text-paper shadow-card transition hover:bg-navy/90">Retry</button>
         </div>
       )}
 
       {v && modelQ && item.route && (
         <>
-          <p className={`mt-3 text-sm ${modelQ.text}`}>{item.route.reason}</p>
-          <div className="mt-3 space-y-1.5">
-            <ProbBar label="Outside contract" value={v.outside} ticks={[THRESHOLDS.inScopeBelow, THRESHOLDS.outsideAtLeast]} tone="bg-navy" hint="Ticks at 30% and 70%: below 30% is in scope, from 70% is outside." />
-            <ProbBar label="Agreed to pay" value={v.paid} ticks={[THRESHOLDS.paidNo, THRESHOLDS.paidYes]} tone="bg-agreed" hint="Ticks at 25% and 75%." />
-            <ProbBar label="Later withdrawn" value={v.withdrawn} ticks={[THRESHOLDS.withdrawn]} tone="bg-withdrawn" hint="Tick at 75%." />
+          <p className="mt-3 text-sm text-ink/80">{item.route.reason}</p>
+          <div className="mt-4 space-y-2.5">
+            <ProbBar label="Outside contract" value={v.outside} ticks={[THRESHOLDS.inScopeBelow, THRESHOLDS.outsideAtLeast]} tone="bg-navy" hint="Notches at 30% and 70%: below 30% is in scope, from 70% is outside." />
+            <ProbBar label="Agreed to pay" value={v.paid} ticks={[THRESHOLDS.paidNo, THRESHOLDS.paidYes]} tone="bg-agreed" hint="Notches at 25% and 75%." />
+            <ProbBar label="Later withdrawn" value={v.withdrawn} ticks={[THRESHOLDS.withdrawn]} tone="bg-withdrawn" hint="Notch at 75%." />
           </div>
-          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-            {eq !== "in_scope" && eq !== "withdrawn" && <span>Tagged: <b className="font-medium text-ink">{v.kind.replace("_", " ")}</b></span>}
-            <span>Rough effort estimate: <b className="font-medium text-ink">{effortLabel(v.effort)}</b></span>
+          <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+            {eq !== "in_scope" && eq !== "withdrawn" && <span>Tagged: <b className="font-semibold text-ink">{v.kind.replace("_", " ")}</b></span>}
+            <span>Rough effort estimate: <b className="font-semibold text-ink">{effortLabel(v.effort)}</b></span>
           </p>
         </>
       )}
 
       {/* ASK ME: one concrete question, three answers */}
       {item.route?.queue === "ask_me" && item.route.ask && (
-        <div className="mt-4 rounded-lg border-l-4 border-ask bg-ask-bg/60 px-3.5 py-3">
+        <div className="mt-5 rounded-2xl border border-ask/25 bg-ask-bg/60 p-4 sm:p-5">
           {needsAnswer ? (
             <>
-              <p className="text-sm font-semibold" id={`q-${item.id}`}>{askQuestion(item.text, item.route.ask)}</p>
-              <p className="mt-1 text-xs text-muted">Your answer is recorded below and you can undo it.</p>
-              <div role="group" aria-labelledby={`q-${item.id}`} className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => onDecide("in_scope")} className={`${btn} border-scope/40 bg-card text-scope hover:border-scope`}>In scope</button>
-                <button onClick={() => onDecide("extra")} className={`${btn} border-change/40 bg-card text-change hover:border-change`}>Extra work</button>
-                <button onClick={() => onDecide("skip")} className={`${btn} border-line bg-card text-muted hover:border-ink/40`}>Skip</button>
+              <p className="t-eyebrow text-ask">One question for you</p>
+              <p className="font-display mt-1.5 text-[1.1875rem] leading-snug" id={`q-${item.id}`}>{askQuestion(item.text, item.route.ask)}</p>
+              <div role="group" aria-labelledby={`q-${item.id}`} className="mt-4 grid gap-2.5 sm:grid-cols-3">
+                <button onClick={() => onDecide("in_scope")} className="rounded-xl border border-scope/40 bg-card px-4 py-3 text-left shadow-card transition hover:border-scope hover:shadow-lift">
+                  <span className="block text-sm font-semibold text-scope">In scope</span><span className="block text-xs text-muted">It was part of the deal</span>
+                </button>
+                <button onClick={() => onDecide("extra")} className="rounded-xl border border-change/40 bg-card px-4 py-3 text-left shadow-card transition hover:border-change hover:shadow-lift">
+                  <span className="block text-sm font-semibold text-change">Extra work</span><span className="block text-xs text-muted">Prepare a change order</span>
+                </button>
+                <button onClick={() => onDecide("skip")} className="rounded-xl border border-line bg-card px-4 py-3 text-left shadow-card transition hover:border-ink/40 hover:shadow-lift">
+                  <span className="block text-sm font-semibold text-ink/80">Skip</span><span className="block text-xs text-muted">Decide later</span>
+                </button>
               </div>
+              <p className="mt-3 text-xs text-muted">Your answer is recorded below and you can undo it.</p>
             </>
           ) : (
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span>Your decision: <b>{DECISION_LABEL[item.decision!]}</b></span>
               <span className="text-xs text-muted">(model said: Ask me)</span>
-              <button onClick={() => onDecide(undefined)} className="text-xs font-medium text-navy underline underline-offset-4">Undo</button>
+              <button onClick={() => onDecide(undefined)} className="text-xs font-semibold text-navy underline underline-offset-4">Undo</button>
             </p>
           )}
         </div>
@@ -86,8 +103,8 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
 
       {/* AGREED EXTRA / WITHDRAWN: the sentence that supports the verdict */}
       {item.support && (
-        <div className={`mt-4 rounded-lg border-l-4 px-3.5 py-3 text-sm ${item.support.kind === "agreement" ? "border-agreed bg-agreed-bg/60" : "border-withdrawn bg-withdrawn-bg/60"}`}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{item.support.kind === "agreement" ? "Agreement found" : "Withdrawal found"}</p>
+        <div className={`mt-5 rounded-xl border-l-4 px-4 py-3 text-sm ${item.support.kind === "agreement" ? "border-agreed bg-agreed-bg/70" : "border-withdrawn bg-withdrawn-bg/80"}`}>
+          <p className="t-eyebrow text-muted">{item.support.kind === "agreement" ? "Agreement found" : "Withdrawal found"}</p>
           {item.support.status === "running" && <p role="status" className="mt-1 flex items-center gap-2 text-muted"><span className="spinner" /> Locating the sentence…</p>}
           {item.support.status === "failed" && (
             <p role="alert" className="mt-1 text-change">Could not locate the sentence. <button onClick={onRetrySupport} className="font-medium text-navy underline underline-offset-4">Retry</button></p>
@@ -100,7 +117,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
         </div>
       )}
       {item.route?.queue === "agreed_extra" && (
-        <div className="mt-3 rounded-lg bg-agreed-bg px-3 py-2 text-sm text-agreed">
+        <div className="mt-3 rounded-xl bg-agreed-bg px-4 py-3 text-sm text-agreed">
           <p>
             <b>Agreed price:</b>{" "}
             {item.agreedPrice?.status === "running" && <span className="inline-flex items-center gap-1.5" role="status"><span className="spinner" /> Looking for the price…</span>}
@@ -122,8 +139,8 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
       )}
 
       {item.evidence && (
-        <button onClick={() => onShow(item.id)} className="mt-3 block text-xs font-medium text-navy underline decoration-navy/30 underline-offset-4 hover:decoration-navy">
-          Show request in thread
+        <button onClick={() => onShow(item.id)} className="mt-4 block text-xs font-semibold text-navy underline decoration-navy/30 underline-offset-4 hover:decoration-navy">
+          Show request in thread →
         </button>
       )}
     </article>

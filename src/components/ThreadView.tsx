@@ -26,13 +26,13 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
   const stateOf = (idx: number) => analysis.messageStates.find((s) => s.messageIndex === idx);
 
   return (
-    <ol className="space-y-2.5" aria-label="Thread with evidence highlighted">
+    <ol className="space-y-3" aria-label="Thread with evidence highlighted">
       {analysis.messages.map((m) => {
         const st = stateOf(m.index);
         return (
-          <li key={m.index} id={`msg-${m.index}`} className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${m.isClient ? "border border-line bg-card" : "bg-transparent text-muted"}`}>
+          <li key={m.index} id={`msg-${m.index}`} className={`rounded-2xl px-4 py-3 text-[0.9375rem] leading-6 ${m.isClient ? "surface" : "ml-4 border-l-2 border-line pl-4 text-muted sm:ml-8"}`}>
             <div className="mb-0.5 flex items-center justify-between gap-2">
-              <span className={`text-xs font-semibold uppercase tracking-wide ${m.isClient ? "text-navy" : "text-muted"}`}>{m.speaker}{m.isClient ? " · client" : ""}</span>
+              <span className={`t-eyebrow ${m.isClient ? "text-navy" : "text-muted"}`}>{m.speaker}{m.isClient ? " · client" : ""}</span>
               {st?.status === "running" && <span className="flex items-center gap-1 text-xs text-muted" role="status"><span className="spinner" /> Reading</span>}
               {st?.status === "done" && st.requestCount === 0 && <span className="text-xs text-muted">No actionable request</span>}
               {st?.status === "failed" && (
@@ -53,7 +53,7 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                 const secondary = sub === "support" ? (item.support?.kind === "agreement" ? "Agreement sentence" : "Withdrawal sentence") : sub === "price" ? "Price quoted" : sub === "agreedprice" ? "Agreed price" : sub?.startsWith("v") ? `Verify evidence (${item.changeOrder?.verify?.claims?.[Number(sub.slice(1))]?.verdict?.replace("_", " ") ?? ""})` : null;
                 return (
                   <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={secondary ?? (q ? q.label : "Checking")}
-                    className={`cursor-pointer rounded-sm px-0.5 text-ink ${secondary ? "border-b-2 border-dashed border-ink bg-card font-medium ring-1 ring-ink/20" : `border-b-2 ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"}`} ${withdrawn && !secondary ? "line-through" : ""} ${activeId === seg.id ? "flash outline outline-2 outline-navy" : ""}`}>
+                    className={`cursor-pointer rounded px-1 py-0.5 text-ink [box-decoration-break:clone] ${secondary ? "border-b-2 border-dashed border-ink bg-card font-medium ring-1 ring-ink/20" : `border-b-2 ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"}`} ${withdrawn && !secondary ? "line-through" : ""} ${activeId === seg.id ? "flash outline outline-2 outline-navy" : ""}`}>
                     {seg.text}
                   </mark>
                 );
