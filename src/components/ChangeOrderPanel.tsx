@@ -16,7 +16,7 @@ export function ChangeOrderPanel({ item, open, setOpen, onPrepare, onRegenerate,
     return (
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
         <button onClick={() => { setOpen(true); onPrepare(); }} className="rounded-md bg-navy px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-navy/90">Prepare change order</button>
-        <span className="text-xs text-muted">One Fill call, about 8 credits.</span>
+        <span className="text-xs text-muted">One Fill call, about 10 credits.</span>
       </div>
     );
   }

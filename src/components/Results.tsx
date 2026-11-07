@@ -128,7 +128,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
                 </div>
                 {q === "needs_change_order" && preparable.length > 1 && (
                   <button onClick={onPrepareAll} className="rounded-md border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy hover:border-navy">
-                    Prepare all ({preparable.length}) · about {preparable.length * 8} credits
+                    Prepare all ({preparable.length}) · about {preparable.length * 10} credits
                   </button>
                 )}
               </div>
