@@ -1,0 +1,183 @@
+{
+  "contract": "Project: 5-page website for a bakery (Home, Menu, About, Gallery, Contact). Fixed price: $800. Includes two rounds of design revisions. Excluded: online ordering, payment integration, blog, hosting management.",
+  "cases": [
+    {
+      "id": "banner-colour",
+      "kind": "decide",
+      "thread": "Dev: The first draft is ready.\nClient: Can you change the banner colour to dark green?",
+      "request": "change the banner colour to dark green",
+      "expect": {
+        "outside": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "ordering-after-think",
+      "kind": "decide",
+      "thread": "Client: Can you add online ordering so customers can order cakes?\nDev: Online ordering is outside the current scope. I can send a quote if you like.\nClient: Hmm, let me think about it.",
+      "request": "add online ordering so customers can order cakes",
+      "expect": {
+        "outside": {
+          "min": 0.9
+        },
+        "paid": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "blog",
+      "kind": "decide",
+      "thread": "Client: Please add a blog section for our recipes.\nDev: A blog is not part of the agreed scope.",
+      "request": "add a blog section for our recipes",
+      "expect": {
+        "outside": {
+          "min": 0.9
+        },
+        "paid": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "bengali-agreed",
+      "kind": "decide",
+      "thread": "Client: Can you add a Bengali version of the site?\nDev: That is outside the agreed scope. It would be $150 extra. Shall I proceed?\nClient: Sounds good, go ahead!",
+      "request": "add a Bengali version of the site",
+      "expect": {
+        "paid": {
+          "min": 0.9
+        }
+      }
+    },
+    {
+      "id": "bengali-withdrawn",
+      "kind": "decide",
+      "thread": "Client: Can you add a Bengali version of the site?\nDev: That is outside the agreed scope. It would be $150 extra. Shall I proceed?\nClient: Sounds good, go ahead!\nDev: Great, starting.\nClient: Actually, forget the Bengali version.",
+      "request": "add a Bengali version of the site",
+      "expect": {
+        "paid": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "price-promised-later",
+      "kind": "decide",
+      "thread": "Client: Please add Google Analytics and a Facebook pixel.\nDev: Those are extra. I will send you a price tomorrow.\nClient: OK please send the price.",
+      "request": "add Google Analytics and a Facebook pixel",
+      "expect": {
+        "outside": {
+          "min": 0.9
+        },
+        "paid": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "whatsapp-ambiguous",
+      "kind": "decide",
+      "thread": "Client: Could you add a small WhatsApp reserve button? Just a link, no extra cost.",
+      "request": "add a small WhatsApp reserve button, just a link, no extra cost",
+      "expect": {
+        "outside": {
+          "min": 0.25,
+          "max": 0.75
+        }
+      }
+    },
+    {
+      "id": "banglish-blog",
+      "kind": "decide",
+      "thread": "Client: bhai ekta blog section add kore dao website e, koto lagbe bolen",
+      "request": "ekta blog section add kore dao website e, koto lagbe bolen",
+      "expect": {
+        "outside": {
+          "min": 0.9
+        },
+        "paid": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "too-expensive",
+      "kind": "decide",
+      "thread": "Client: Can you add a Bengali version of the site?\nDev: That would be $150 extra. Proceed?\nClient: Hmm, that sounds a bit expensive, maybe.",
+      "request": "add a Bengali version of the site",
+      "expect": {
+        "paid": {
+          "max": 0.1
+        }
+      }
+    },
+    {
+      "id": "extract-two-requests",
+      "kind": "extract",
+      "message": "Please change the banner to green 😀 and also add a blog section. Thanks!",
+      "expect": {
+        "minItems": 2,
+        "contains": [
+          "banner",
+          "blog"
+        ]
+      }
+    },
+    {
+      "id": "extract-no-request",
+      "kind": "extract",
+      "message": "Thanks, looks great!",
+      "expect": {
+        "maxItems": 0
+      }
+    },
+    {
+      "id": "fill-anchor-analytics",
+      "kind": "fill",
+      "thread": "Client: Please add a blog section for our recipes.\nDev: A blog is outside the scope; I can quote it.\nClient: Also please add Google Analytics.\nDev: Analytics is extra too.",
+      "request": "add Google Analytics",
+      "expect": {
+        "mustMention": [
+          "analytics"
+        ],
+        "mustNotMention": [
+          "blog"
+        ]
+      }
+    },
+    {
+      "id": "fill-anchor-blog",
+      "kind": "fill",
+      "thread": "Client: Please add a blog section for our recipes.\nDev: A blog is outside the scope; I can quote it.\nClient: Also please add Google Analytics.\nDev: Analytics is extra too.",
+      "request": "add a blog section for our recipes",
+      "expect": {
+        "mustMention": [
+          "blog"
+        ],
+        "mustNotMention": [
+          "analytics"
+        ]
+      }
+    },
+    {
+      "id": "fill-no-price-quoted",
+      "kind": "fill",
+      "thread": "Client: Please add online ordering for cakes.\nDev: That is outside the scope. I can send a quote.\nClient: Hmm, let me think about it.",
+      "request": "add online ordering for cakes",
+      "expect": {
+        "priceNull": true
+      }
+    },
+    {
+      "id": "fill-price-quoted",
+      "kind": "fill",
+      "thread": "Client: Can you add a Bengali version of the site?\nDev: That is outside the agreed scope. It would be $150 extra. Shall I proceed?\nClient: Hmm, let me think about it.",
+      "request": "add a Bengali version of the site",
+      "expect": {
+        "priceContains": "150"
+      }
+    }
+  ]
+}

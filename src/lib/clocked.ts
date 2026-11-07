@@ -87,7 +87,7 @@ export function createClockedClient(opts: ClientOptions = {}) {
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try {
-          const j = await res.json();
+          const j = (await res.json()) as { error?: string | { message?: string }; message?: string };
           if (j?.error) msg = typeof j.error === "string" ? j.error : (j.error.message ?? msg);
           else if (j?.message) msg = j.message;
         } catch { /* body not JSON */ }
