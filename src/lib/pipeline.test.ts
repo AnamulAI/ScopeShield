@@ -78,3 +78,20 @@ describe("buildFillRequest", () => {
     expect(sliceCp(body.text, threadOffset, threadOffset + 12)).toBe("Client: hi 😀");
   });
 });
+
+import { runDecide, emptyUsage, type Analysis, type RequestItem } from "./pipeline";
+describe("runDecide retry", () => {
+  it("recovers a failed item on the second try and keeps the error info on failure", async () => {
+    const a: Analysis = { messages: [], messageStates: [], items: [], usage: emptyUsage() };
+    const item: RequestItem = { id: "1-0", messageIndex: 1, text: "x", evidence: null, status: "failed", error: "old" };
+    const bad = { call: () => Promise.reject(new Error("down")) } as unknown as ClockedClient;
+    await runDecide(a, item, { contract: "c", thread: "t", clientName: "n" }, bad, () => {});
+    expect(item.status).toBe("failed");
+    expect(item.error).toBe("down");
+    const { client } = mockClient();
+    await runDecide(a, item, { contract: "c", thread: "t", clientName: "n" }, client, () => {});
+    expect(item.status).toBe("done");
+    expect(item.error).toBeUndefined();
+    expect(item.route?.queue).toBeDefined();
+  });
+});
