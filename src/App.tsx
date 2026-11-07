@@ -6,12 +6,13 @@ import { effectiveQueue, type Decision } from "./lib/routing";
 import { InputPanel, type Inputs } from "./components/InputPanel";
 import { HowItWorks } from "./components/HowItWorks";
 import { Results } from "./components/Results";
+import { ResultsSkeleton } from "./components/Skeleton";
 
 type Mode = "demo" | "live";
 interface DemoIndexEntry { id: string; title: string; blurb: string; recordedAt: string }
 
 const Shield = () => (
-  <svg width="26" height="28" viewBox="0 0 26 28" aria-hidden>
+  <svg width="30" height="32" viewBox="0 0 26 28" aria-hidden>
     <path d="M13 1.5 2.5 5v8.2c0 6.2 4.3 10.9 10.5 13.3 6.2-2.4 10.5-7.1 10.5-13.3V5L13 1.5Z" fill="#1b2a41" />
     <path d="m8.2 13.8 3.6 3.6 6.2-7" fill="none" stroke="#f4efe4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
@@ -103,59 +104,77 @@ export default function App() {
   const retryVerify = (id: string) => direct((a, i) => runVerify(a, byId(id)!, i, client, render));
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
-  const tab = (m: Mode, label: string) => (
-    <button aria-pressed={mode === m} onClick={() => switchMode(m)}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${mode === m ? "bg-navy text-white" : "text-navy hover:bg-navy/10"}`}>{label}</button>
+  const modeCard = (m: Mode, title: string, line: string, meta: string) => (
+    <button type="button" aria-pressed={mode === m} onClick={() => switchMode(m)}
+      className={`group flex flex-1 flex-col items-start gap-1 rounded-2xl border p-4 text-left transition sm:p-5 ${mode === m ? "border-navy bg-navy text-paper shadow-lift" : "border-line bg-card shadow-card hover:border-navy/40"}`}>
+      <span className="flex w-full items-center justify-between gap-3">
+        <span className="t-h3">{title}</span>
+        <span aria-hidden className={`flex h-5 w-5 items-center justify-center rounded-full border ${mode === m ? "border-paper bg-paper text-navy" : "border-line"}`}>{mode === m ? "✓" : ""}</span>
+      </span>
+      <span className={`text-sm ${mode === m ? "text-paper/90" : "text-ink/80"}`}>{line}</span>
+      <span className={`t-eyebrow mt-2 ${mode === m ? "text-paper/70" : "text-muted"}`}>{meta}</span>
+    </button>
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-line pb-5">
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Shield />
-          <div>
-            <h1 className="font-display text-3xl leading-none tracking-tight">ScopeShield</h1>
-            <p className="mt-1 text-sm text-muted">Catch scope creep before it becomes unpaid work.</p>
-          </div>
+          <span className="font-display text-xl leading-none">ScopeShield</span>
         </div>
-        <div role="group" aria-label="Mode" className="flex gap-1 rounded-full border border-line bg-card p-1">
-          {tab("demo", "Demo")}{tab("live", "Run live")}
-        </div>
+        <p className="t-eyebrow hidden text-muted sm:block">Powered by Clocked</p>
       </header>
 
-      <p className="mb-6 max-w-2xl text-sm text-muted">“Let me think about it” is not a yes. ScopeShield reads a client thread against your contract, and only counts what the client clearly agreed to.</p>
+      <section aria-labelledby="hero" className="mt-10 grid gap-8 border-b border-line pb-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end lg:gap-12 lg:pb-12">
+        <div>
+          <p className="t-eyebrow text-muted">For freelancers and small agencies</p>
+          <h1 id="hero" className="t-display mt-3 max-w-[16ch]">Catch scope creep before it becomes unpaid work.</h1>
+          <p className="mt-4 max-w-xl text-[1.0625rem] leading-7 text-ink/85">
+            “Let me think about it” is not a yes. ScopeShield reads a client thread against your contract, and only counts what the client clearly agreed to.
+          </p>
+        </div>
+        <div role="group" aria-label="Choose a mode" className="flex flex-col gap-3 sm:flex-row">
+          {modeCard("demo", "Demo", "Explore three recorded real results. No setup, no API calls.", "3 samples · 0 credits")}
+          {modeCard("live", "Run live", "Analyse your own contract and thread.", "Your text · uses credits")}
+        </div>
+      </section>
 
-      <main className="space-y-8">
+      <main className="mt-8 space-y-8">
         <HowItWorks analysis={analysis} recorded={mode === "demo"} />
 
         {mode === "demo" ? (
           <section className="space-y-5" aria-label="Demo mode">
-            <div className="rounded-xl border border-agreed/30 bg-agreed-bg/60 px-4 py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-3" role="group" aria-label="Sample threads">
+              <span className="t-eyebrow text-muted">Sample thread</span>
+              {(demoIndex ?? []).map((d) => (
+                <button key={d.id} onClick={() => setDemoId(d.id)} aria-pressed={demoId === d.id} title={d.blurb}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${demoId === d.id ? "border-navy bg-navy text-paper" : "border-line bg-card text-navy shadow-card hover:border-navy/50"}`}>{d.title}</button>
+              ))}
+            </div>
+            {snap && <p className="max-w-2xl text-[0.9375rem] text-ink/80">{demoIndex?.find((d) => d.id === demoId)?.blurb}</p>}
+            <div className="flex gap-3 rounded-xl border border-agreed/25 bg-agreed-bg/70 px-4 py-3 text-sm text-ink">
+              <span aria-hidden className="mt-0.5 text-agreed">●</span>
               <p>
                 <b>Recorded from a live Clocked run{snap ? ` on ${snap.recordedAt}` : ""}.</b>{" "}
                 {snap ? `Recording it used ${snap.credits.total} credits. ` : ""}
-                Synthetic data, made-up people. Demo mode makes no API calls, so you can click around freely: answer Ask me cards, undo, copy a change order.
+                Synthetic data, made-up people. Demo mode makes no API calls, so you can click around freely: answer Ask me cards, undo, copy a change order.{" "}
+                <button onClick={() => switchMode("live")} className="font-semibold text-navy underline underline-offset-4">Run live on your own contract and thread →</button>
               </p>
-              <button onClick={() => switchMode("live")} className="mt-2 text-xs font-semibold text-navy underline underline-offset-4">Run live on your own contract and thread →</button>
             </div>
-            <div role="group" aria-label="Sample threads" className="flex flex-wrap gap-2">
-              {(demoIndex ?? []).map((d) => (
-                <button key={d.id} onClick={() => setDemoId(d.id)} aria-pressed={demoId === d.id} title={d.blurb}
-                  className={`rounded-full border px-4 py-1.5 text-sm font-medium ${demoId === d.id ? "border-navy bg-navy text-white" : "border-navy/30 bg-card text-navy hover:border-navy"}`}>{d.title}</button>
-              ))}
-            </div>
-            {snap && <p className="text-sm text-muted">{demoIndex?.find((d) => d.id === demoId)?.blurb}</p>}
             {demoError && <p role="alert" className="text-sm text-change">{demoError}</p>}
-            {!snap && !demoError && <p role="status" className="text-sm text-muted">Loading the recorded run…</p>}
+            {!snap && !demoError && <ResultsSkeleton label="Loading the recorded run" />}
           </section>
         ) : (
           <InputPanel value={inputs} onChange={setInputs} onAnalyze={run} busy={running} />
         )}
 
         {mode === "live" && !analysis && (
-          <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            Results appear here: requests grouped by queue, with the client’s exact sentence highlighted in the thread. Not ready to spend credits? Try the <button onClick={() => switchMode("demo")} className="font-medium text-navy underline underline-offset-4">recorded demo</button>.
-          </p>
+          <div className="surface flex flex-col items-center gap-2 border-dashed p-8 text-center">
+            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-paper-deep text-muted">↓</span>
+            <p className="t-h3">Your results will appear here</p>
+            <p className="max-w-md text-sm text-muted">Requests grouped into five queues, with the client’s exact sentence highlighted in the thread. Not ready to spend credits? Try the <button onClick={() => switchMode("demo")} className="font-semibold text-navy underline underline-offset-4">recorded demo</button>.</p>
+          </div>
         )}
 
         {analysis && (
@@ -165,6 +184,11 @@ export default function App() {
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}
       </main>
+
+      <footer className="mt-16 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6 text-xs text-muted">
+        <p>Powered by Clocked. Sample data is synthetic: made-up people and companies.</p>
+        <p>Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development.</p>
+      </footer>
     </div>
   );
 }

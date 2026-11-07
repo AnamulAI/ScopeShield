@@ -11,19 +11,19 @@ export function HowItWorks({ analysis, recorded }: { analysis: Analysis | null; 
   const u = analysis?.usage;
   const total = u ? u.extract.credits + u.decide.credits + u.fill.credits + (u.price?.credits ?? 0) + (u.verify?.credits ?? 0) : 0;
   return (
-    <details className="group rounded-xl border border-line bg-card">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold">
-        <span>How it works <span className="font-normal text-muted">· four Clocked endpoints, 30 seconds</span></span>
+    <details className="group surface">
+      <summary className="flex list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold">
+        <span className="flex flex-wrap items-baseline gap-x-3"><span className="t-h3">How it works</span><span className="font-normal text-muted">four Clocked endpoints, 30 seconds</span></span>
         <span aria-hidden className="text-muted transition group-open:rotate-180">▾</span>
       </summary>
-      <div className="space-y-4 border-t border-line px-4 py-4 text-sm">
+      <div className="space-y-4 border-t border-line px-5 py-5 text-sm leading-6">
         <p className="text-muted">You paste the contract and a thread, and say who the client is. The app calls Clocked in small steps from your browser, three at a time, and keeps partial results if a step fails.</p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[34rem] border-collapse text-left text-xs sm:text-sm">
-            <thead><tr className="border-b border-line text-muted"><th className="py-2 pr-3 font-medium">Clocked endpoint</th><th className="py-2 pr-3 font-medium">What it decides</th><th className="py-2 font-medium">What changes in the app</th></tr></thead>
+            <thead><tr className="border-b border-line text-muted t-eyebrow"><th className="py-2 pr-3 font-semibold">Clocked endpoint</th><th className="py-2 pr-3 font-semibold">What it decides</th><th className="py-2 font-semibold">What changes in the app</th></tr></thead>
             <tbody>
               {ROWS.map(([ep, decides, changes]) => (
-                <tr key={ep} className="border-b border-line/60 align-top"><td className="py-2 pr-3 font-semibold">{ep}</td><td className="py-2 pr-3">{decides}</td><td className="py-2">{changes}</td></tr>
+                <tr key={ep} className="border-b border-line/60 align-top"><td className="py-3 pr-4 font-display text-base font-semibold">{ep}</td><td className="py-3 pr-4">{decides}</td><td className="py-3">{changes}</td></tr>
               ))}
             </tbody>
           </table>
