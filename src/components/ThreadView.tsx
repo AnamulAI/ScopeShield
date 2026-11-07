@@ -1,15 +1,23 @@
 import { useMemo } from "react";
 import type { Analysis } from "../lib/pipeline";
 import { segmentMessage } from "../lib/thread";
+import { effectiveQueue } from "../lib/routing";
 import { QUEUES } from "./queues";
 
 interface Props { analysis: Analysis; activeId: string | null; onPick: (id: string) => void; onRetryMessage: (messageIndex: number) => void }
 
 export function ThreadView({ analysis, activeId, onPick, onRetryMessage }: Props) {
-  const spans = useMemo(
-    () => analysis.items.filter((i) => i.evidence).map((i) => ({ id: i.id, start: i.evidence!.start, end: i.evidence!.end })),
-    [analysis.items],
-  );
+  // Main span = the request; secondary spans = agreement/withdrawal sentence and the quoted price.
+  const spans = useMemo(() => {
+    const out: { id: string; start: number; end: number }[] = [];
+    for (const i of analysis.items) {
+      if (i.evidence) out.push({ id: i.id, ...i.evidence });
+      if (i.support?.evidence) out.push({ id: `${i.id}:support`, ...i.support.evidence });
+      const pe = i.changeOrder?.data?.priceEvidence;
+      if (pe) out.push({ id: `${i.id}:price`, ...pe });
+    }
+    return out.sort((a, b) => (a.id.includes(":") ? 1 : 0) - (b.id.includes(":") ? 1 : 0)); // requests win overlaps
+  }, [analysis.items]);
   const itemById = useMemo(() => new Map(analysis.items.map((i) => [i.id, i])), [analysis.items]);
   const stateOf = (idx: number) => analysis.messageStates.find((s) => s.messageIndex === idx);
 
@@ -33,12 +41,15 @@ export function ThreadView({ analysis, activeId, onPick, onRetryMessage }: Props
             <p className="whitespace-pre-wrap break-words">
               {segmentMessage(m, spans).map((seg, k) => {
                 if (!seg.id) return <span key={k}>{seg.text}</span>;
-                const item = itemById.get(seg.id)!;
-                const q = item.route ? QUEUES[item.route.queue] : null;
-                const withdrawn = item.route?.queue === "withdrawn";
+                const [baseId, sub] = seg.id.split(":");
+                const item = itemById.get(baseId)!;
+                const eq = effectiveQueue(item.route, item.decision);
+                const q = eq !== "pending" ? QUEUES[eq] : null;
+                const withdrawn = eq === "withdrawn";
+                const secondary = sub === "support" ? (item.support?.kind === "agreement" ? "Agreement sentence" : "Withdrawal sentence") : sub === "price" ? "Price quoted" : null;
                 return (
-                  <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={q ? q.label : "Checking"}
-                    className={`cursor-pointer rounded-sm border-b-2 px-0.5 text-ink ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"} ${withdrawn ? "line-through" : ""} ${activeId === seg.id ? "flash outline outline-2 outline-navy" : ""}`}>
+                  <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={secondary ?? (q ? q.label : "Checking")}
+                    className={`cursor-pointer rounded-sm px-0.5 text-ink ${secondary ? "border-b-2 border-dashed border-ink bg-card font-medium ring-1 ring-ink/20" : `border-b-2 ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"}`} ${withdrawn && !secondary ? "line-through" : ""} ${activeId === seg.id ? "flash outline outline-2 outline-navy" : ""}`}>
                     {seg.text}
                   </mark>
                 );

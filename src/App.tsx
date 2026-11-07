@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createClockedClient } from "./lib/clocked";
-import { analyze, runDecide, runMessage, type Analysis } from "./lib/pipeline";
+import { analyze, runDecide, runFill, runMessage, runSupport, type Analysis } from "./lib/pipeline";
+import { effectiveQueue, type Decision } from "./lib/routing";
 import { InputPanel, type Inputs } from "./components/InputPanel";
 import { Results } from "./components/Results";
 
@@ -39,6 +40,25 @@ export default function App() {
   const retryItem = (id: string) => retry((a, i) => runDecide(a, a.items.find((x) => x.id === id)!, i, client, render));
   const retryMessage = (idx: number) => retry((a, i) => runMessage(a, a.messages[idx], i, client, render));
 
+  const byId = (id: string) => live.current?.items.find((x) => x.id === id);
+  // Fill / support lookups are tracked per card, so they do not flip the page-level "Analysing" state.
+  const direct = async (fn: (a: Analysis, i: Inputs) => Promise<void>) => { if (live.current && ran.current) { await fn(live.current, ran.current); render(); } };
+  const fill = (id: string, regenerate = false) => direct((a, i) => runFill(a, byId(id)!, i, client, render, regenerate));
+  const decide = (id: string, d: Decision | undefined) => {
+    const item = byId(id);
+    if (!item) return;
+    item.decision = d;
+    render();
+    if (d === "extra" && !item.changeOrder) void fill(id); // "Extra work" triggers Fill
+  };
+  const prepareAll = () => {
+    const a = live.current;
+    if (!a) return;
+    const todo = a.items.filter((x) => effectiveQueue(x.route, x.decision) === "needs_change_order" && x.status === "done" && (!x.changeOrder || x.changeOrder.status === "failed"));
+    return direct((an, i) => Promise.all(todo.map((x) => runFill(an, x, i, client, render))).then(() => undefined)); // client caps concurrency at 3
+  };
+  const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3 border-b border-line pb-5">
@@ -54,7 +74,8 @@ export default function App() {
 
       <main className="space-y-10">
         <InputPanel value={inputs} onChange={setInputs} onAnalyze={run} busy={running} />
-        {analysis && <Results analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage} />}
+        {analysis && <Results analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
+          onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} />}
       </main>
     </div>
   );
