@@ -82,10 +82,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   const body = await request.text();
   if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) return json(413, "Body too large");
 
-  if (env.RATE_LIMIT) {
+  if (isLocalHost(request.url)) {
+    // Local development (wrangler pages dev): no daily caps, so evals and snapshots can run. A deployed host is never "localhost".
+  } else if (env.RATE_LIMIT) {
     const res = await checkLimits(env.RATE_LIMIT, request.headers.get("CF-Connecting-IP") ?? "unknown");
     if (!res.ok) return json(429, LIMIT_MESSAGE, "limit_reached", { "retry-after": String(secondsToUtcMidnight(new Date())) });
-  } else if (!isLocalHost(request.url)) {
+  } else {
     // Never fail open on a missing binding outside local development.
     if (!warnedMissingBinding) {
       warnedMissingBinding = true;

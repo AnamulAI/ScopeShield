@@ -2,7 +2,7 @@
 
 Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/golden.json`. Real numbers only.
 
-**20/21 cases passed.**
+**22/23 cases passed.**
 
 | Case | Endpoint | Result | Detail |
 |---|---|---|---|
@@ -27,6 +27,8 @@ Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/g
 | fill-no-extra-cost-is-not-a-price | fill | FAIL | message says "I can certainly" |
 | fill-risk-large-no-agreement | fill | PASS | price=null; msg="Adding online ordering so customers can order cakes is outside our current agreement. The …" |
 | fill-risk-critical-ish-no-agreement-medium | fill | PASS | price=null; msg="Adding a blog section for your recipes is outside our current agreement. I will provide a …" |
+| verify-flags-wrong-claims | verify | PASS | supported 0, not stated 1, contradicted 1 |
+| verify-true-claim-not-contradicted | verify | PASS | supported 1, not stated 0, contradicted 0 |
 
 ## Credits used by this eval run
 
@@ -34,8 +36,9 @@ Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/g
 |---|---|---|
 | extract | 5 | 17 |
 | decide | 9 | 14 |
-| fill | 7 | 67 |
-| **Total** | 21 | **98** |
+| fill | 7 | 66 |
+| verify | 2 | 7 |
+| **Total** | 23 | **104** |
 
 ## Notes and history (hand-written; appended to every eval run)
 
@@ -58,3 +61,20 @@ Traps that did NOT behave as planned:
 - **The third revision round was meant to be a clear change order but routed ASK ME (0.61).** The developer states both included rounds were used up, yet the request is a small tweak ("a little more rounded"). Plausibly a fair question for the human.
 - **Push notifications scored withdrawn 0.56** after "lol not now, lets focus on launch". It stayed below the 0.75 threshold, so it remains NEEDS CHANGE ORDER. "Not now" is not a withdrawal, which seems right.
 - **WhatsApp stayed IN SCOPE** again (see M1.5 note): the model treats "no extra cost" from the developer as in scope.
+
+## M5.5: Fill quality pass (7 Nov 2026)
+
+Triggered by reviewing a real screenshot: a change order for a large request (online ordering) showed `unpaid_risk: Low`, the generated message said "I can certainly add…", and the next step was the vague "the price will be confirmed".
+
+What changed and why:
+- **Decide results now reach Fill.** The shared instructions end with "Effort estimate from Decide: <level>. Agreement to pay found: <yes/no>." and `unpaid_risk` has an explicit rubric (Low = trivial effort or an agreement exists; Medium = under about a day, no agreement; High = several days; Critical = a week or more; never Low for Large effort with no agreement). Golden cases `fill-risk-large-no-agreement` (effort 3, no agreement) and a second no-agreement case check the risk is not Low. Re-recorded online ordering now comes back Critical.
+- **Message rubric:** at most 70 words, first person, say the request is outside the agreement, say the price is quoted separately (a price only if it is in the thread), ask the client to confirm first, no delivery dates, no implying free work. `max_tokens` is now 120 (was 200). Every Fill golden case now also checks word count, "outside the agreement", an ask to confirm, no delivery-date phrasing, no "I can certainly" and no invented amounts.
+- **Next step rubric:** one imperative sentence to the freelancer ("Send <client> a quote for "<request>" and wait for a written yes before starting."). The first version printed the request unquoted and read badly ("a quote for add Google Analytics"), so the template now quotes it. Checks reject third person and "will be confirmed".
+- **Agreed price:** AGREED EXTRA cards now run an Extract over the full thread with the request injected ("the price the developer quoted for THIS request"). Only the extracted text is shown ($120, $900 and $350 in the recordings); null shows "No price found in the thread".
+- Cards: change order collapsed behind "View change order"; the kind tag is hidden for in-scope and withdrawn items; queue order is Needs change order, Ask me, Agreed extra, In scope, Withdrawn.
+
+Eval result after the change: **20/21 golden cases pass.** The one failure is real and not hidden: for the WhatsApp request ("no extra cost") the message still opens with "I can certainly add a small WhatsApp reserve button for you", which the rubric forbids. We did not edit the output.
+
+One of our own checks was too strict: the first run flagged six messages for "not asking to confirm" because the regex looked for the word "confirm", while the messages said "please let me know if you would like to proceed before any work starts". That is a valid ask, so the check was widened (confirm / let me know / proceed / go ahead / approve / before work starts). This was a fix to the test, and the 6 messages themselves were not changed.
+
+Re-recording used `npm run snapshot -- --only fill,price` (Extract and Decide results kept; Fill and price results replaced). It cost 99 credits (bakery 38, fitness 34, brand 27). Observed in the new recordings: all 8 change orders say the request is outside the agreement and ask for a go-ahead; next steps are imperative; the 70-word limit holds. Remaining roughness: next steps quote the request verbatim including its trailing "?", and some messages offer to "provide a quote", which reads slightly odd for a freelancer who is the one quoting.

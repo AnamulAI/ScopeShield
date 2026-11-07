@@ -123,6 +123,14 @@ describe("onRequestPost", () => {
     expect((sent.headers as Record<string, string>).authorization).toBe("Bearer secret-test-value");
     expect(JSON.stringify([...r.headers])).not.toContain("secret-test-value");
   });
+  it("does not apply daily caps on localhost (dev evals), even with a full counter", async () => {
+    const k = kv();
+    const today = new Date().toISOString().slice(0, 10);
+    k.store.set(`rl:ip:${today}:unknown`, String(IP_DAILY_CAP * 2));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    expect((await onRequestPost(ctx("http://localhost:8788/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k }))).status).toBe(200);
+    expect((await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k }))).status).toBe(429);
+  });
   it("rejects oversized bodies", async () => {
     const big = new Request("https://scopeshield.pages.dev/api/clocked/decide", { method: "POST", headers: { "idempotency-key": "k" }, body: "x".repeat(200 * 1024 + 1) });
     const r = await onRequestPost({ request: big, env: { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() }, params: { endpoint: "decide" } } as unknown as Parameters<typeof onRequestPost>[0]);
