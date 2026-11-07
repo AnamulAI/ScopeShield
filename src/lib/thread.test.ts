@@ -47,3 +47,19 @@ describe("parseThread", () => {
     expect(parseThread("", "Client")).toEqual([]);
   });
 });
+
+import { segmentMessage } from "./thread";
+describe("segmentMessage", () => {
+  const thread = "Client: 😀 Please add a blog 📝 and more";
+  const msg = parseThread(thread, "Client")[0];
+  it("highlights by code points around emoji", () => {
+    const segs = segmentMessage(msg, [{ id: "a", start: msg.start + 2, end: msg.start + 2 + cpLength("Please add a blog 📝") }]);
+    expect(segs.map((s) => s.text)).toEqual(["😀 ", "Please add a blog 📝", " and more"]);
+    expect(segs[1].id).toBe("a");
+  });
+  it("skips overlapping spans and spans outside the message", () => {
+    const segs = segmentMessage(msg, [{ id: "a", start: msg.start, end: msg.start + 4 }, { id: "b", start: msg.start + 2, end: msg.start + 6 }, { id: "c", start: 0, end: 3 }]);
+    expect(segs.filter((s) => s.id).map((s) => s.id)).toEqual(["a"]);
+    expect(segs.map((s) => s.text).join("")).toBe(msg.text);
+  });
+});

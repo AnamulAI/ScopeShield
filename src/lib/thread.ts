@@ -67,3 +67,25 @@ export function parseThread(thread: string, clientName: string): Message[] {
 export const toThreadOffsets = (msg: Message, start: number, end: number) => ({ start: msg.start + start, end: msg.start + end });
 
 export const clientMessages = (messages: Message[]) => messages.filter((m) => m.isClient);
+
+export interface Span { start: number; end: number; id: string }
+export interface Segment { text: string; id?: string }
+
+/** Split a message into plain and highlighted segments. Spans are in THREAD code-point offsets; overlapping spans are skipped. */
+export function segmentMessage(msg: Message, spans: Span[]): Segment[] {
+  const chars = Array.from(msg.text);
+  const rel = spans
+    .map((s) => ({ id: s.id, start: Math.max(0, s.start - msg.start), end: Math.min(chars.length, s.end - msg.start) }))
+    .filter((s) => s.end > s.start)
+    .sort((a, b) => a.start - b.start);
+  const out: Segment[] = [];
+  let at = 0;
+  for (const s of rel) {
+    if (s.start < at) continue;
+    if (s.start > at) out.push({ text: chars.slice(at, s.start).join("") });
+    out.push({ text: chars.slice(s.start, s.end).join(""), id: s.id });
+    at = s.end;
+  }
+  if (at < chars.length) out.push({ text: chars.slice(at).join("") });
+  return out;
+}
