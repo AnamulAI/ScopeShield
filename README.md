@@ -1,10 +1,30 @@
 # ScopeShield
 
-ScopeShield helps freelancers and small agencies catch scope creep: paste the agreed scope and a client thread, and it finds requests outside the contract, checks whether the client agreed to pay, and drafts a change order.
+ScopeShield reads a freelancer's contract and a client chat thread, finds the requests the client made, and tells you which ones are outside the agreement, which the client actually agreed to pay for, and which they later withdrew.
 
-**Status:** work in progress, built for the Clocked Build Challenge. Full README coming.
+**Live demo:** https://scopeshield-1la.pages.dev (Demo mode needs no key and makes no API calls)
 
-Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).
+## The problem
+
+Scope creep is rarely one big demand. It is a string of small asks, answered with "sure" or "let me think about it", until nobody agrees on what was promised. "Let me think about it" is not a yes, and a request for a price is not an agreement. Freelancers and small agencies absorb the cost as unpaid work.
+
+## What it does
+
+Paste a contract and a thread, or open one of three synthetic samples. ScopeShield sorts every client request it finds into five queues: needs change order, ask me, agreed extra, in scope, and withdrawn. Each verdict shows the client's own sentence highlighted in the thread, plus the probabilities behind it. For work that needs a change order it drafts a short, polite message and a next step, then checks every claim in that draft against the contract and the thread before you can copy it. A Scope Health summary shows rough unpaid hours, clearly labelled as estimates.
+
+## What is different
+
+The uncertain middle is a feature. When Clocked is not sure, ScopeShield asks you one concrete question instead of guessing, and records your decision. Missing facts stay visible, for example "No price was quoted in this thread".
+
+## Who it is for
+
+Freelancers and small agencies who agree work in chat and email.
+
+## How to try it
+
+Demo mode replays recorded live Clocked results and makes no API calls. Run live analyses your own text. All sample data is synthetic.
+
+*The rest of this README (endpoint table, evals, credit usage, limitations, credits) is written in the next milestone. Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).*
 
 ## Deploy (Cloudflare Pages)
 
