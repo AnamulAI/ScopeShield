@@ -4,6 +4,7 @@ import { effectiveQueue, type Decision, type Queue } from "../lib/routing";
 import { RequestCard } from "./RequestCard";
 import { describeError, worstKind } from "../lib/errors";
 import { QUEUE_ORDER, QUEUES } from "./queues";
+import { ErrorBanner } from "./ErrorBanner";
 import { ScopeHealth } from "./ScopeHealth";
 import { ThreadView } from "./ThreadView";
 
@@ -40,7 +41,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const kinds = [...analysis.messageStates, ...analysis.items].map((x) => (x.status === "failed" ? x.errorKind : undefined))
     .concat(analysis.items.map((i) => (i.changeOrder?.status === "failed" ? i.changeOrder.errorKind : undefined)));
   const worst = worstKind(kinds);
-  const described = worst ? describeError(worst) : null;
+  const described = worst ? describeError(worst, undefined) : null;
   const finished = !running;
   const speaker = (idx: number) => analysis.messages[idx]?.speaker ?? "";
 
@@ -62,90 +63,85 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
       onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} onAck={() => onAck(item.id)} onRetryVerify={() => onRetryVerify(item.id)} />
   );
   const preparable = (groups.get("needs_change_order") ?? []).filter((i) => i.status === "done" && (!i.changeOrder || i.changeOrder.status === "failed"));
+  const pct = analysis.messageStates.length ? Math.round((msgDone / analysis.messageStates.length) * 100) : 100;
   return (
-    <section aria-label="Results" className="space-y-5">
-      <div className="rounded-xl border border-line bg-card p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-display text-xl">{finished ? "Analysis" : "Analysing…"}</h2>
-          <p className="text-xs text-muted" role="status">
+    <section aria-label="Results" className="space-y-6">
+      <div className="surface p-5 sm:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <div>
+            <p className="t-eyebrow text-muted">{finished ? (recorded ? "Recorded analysis" : "Analysis") : "Analysing"}</p>
+            <h2 className="t-h2 mt-1">{finished ? `${total} request${total === 1 ? "" : "s"} found` : "Reading the thread…"}</h2>
+          </div>
+          <p className="text-sm text-muted" role="status">
             {running
-              ? `Reading client messages ${msgDone}/${analysis.messageStates.length} · checked ${itemsDone}/${total} requests`
-              : `${total} request${total === 1 ? "" : "s"} found in ${analysis.messageStates.length} client message${analysis.messageStates.length === 1 ? "" : "s"}`}
+              ? `Client messages read ${msgDone}/${analysis.messageStates.length} · requests checked ${itemsDone}/${total}`
+              : `in ${analysis.messageStates.length} client message${analysis.messageStates.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {QUEUE_ORDER.map((q) => (
-            <li key={q} className={`rounded-lg px-3 py-2 ${QUEUES[q].bg}`}>
-              <div className={`font-display text-2xl leading-none ${QUEUES[q].text}`}>{groups.get(q)?.length ?? 0}</div>
-              <div className="mt-1 text-xs text-ink/80">{QUEUES[q].label}</div>
-            </li>
-          ))}
-        </ul>
-        {described && (
-          <div role="alert" className="mt-3 rounded-lg border border-change/30 bg-change-bg/70 px-3 py-2 text-sm text-change">
-            <b>{described.title}</b> {described.hint}
-            {finished && failures > 0 && <span> {failures} step{failures === 1 ? "" : "s"} failed; everything else is kept, and each failed item has its own Retry.</span>}
-            {described.demo && onSwitchDemo && (
-              <button onClick={onSwitchDemo} className="ml-2 rounded-md bg-navy px-3 py-1 text-xs font-semibold text-white">Switch to Demo mode</button>
-            )}
+        {running && (
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-paper-deep" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Reading client messages">
+            <div className="h-full rounded-full bg-navy transition-[width] duration-500" style={{ width: `${Math.max(pct, 6)}%` }} />
           </div>
         )}
+        <div className="mt-6"><ScopeHealth items={analysis.items} /></div>
+        {described && <ErrorBanner described={described} failures={finished ? failures : 0} onSwitchDemo={onSwitchDemo} />}
       </div>
 
-      <ScopeHealth items={analysis.items} />
-
-      <div className="flex gap-1 lg:hidden" role="group" aria-label="Show findings or thread">
+      <div className="flex gap-2 lg:hidden" role="group" aria-label="Show findings or thread">
         {(["findings", "thread"] as const).map((t) => (
           <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${tab === t ? "bg-navy text-white" : "border border-line bg-card"}`}>
+            className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${tab === t ? "bg-navy text-paper shadow-lift" : "border border-line bg-card text-navy"}`}>
             {t === "findings" ? "Findings" : "Thread"}
           </button>
         ))}
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-        <div className={`${tab === "findings" ? "" : "hidden"} space-y-7 lg:block`}>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
+        <div className={`${tab === "findings" ? "" : "hidden"} space-y-10 lg:block`}>
           {finished && total === 0 && failures === 0 && (
-            <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-muted">No actionable request was found in the client’s messages.</p>
+            <div className="surface border-dashed p-8 text-center">
+              <p className="t-h3">No actionable request found</p>
+              <p className="mt-1 text-sm text-muted">The client’s messages contained nothing that asks for work. If that looks wrong, check the client name.</p>
+            </div>
           )}
           {groups.has("pending") && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted">Checking</h3>
+            <div className="space-y-4">
+              <h3 className="t-eyebrow text-muted">Checking</h3>
               {groups.get("pending")!.map(card)}
             </div>
           )}
           {askHint && finished && !groups.get("ask_me")?.length && (
-            <p className="rounded-lg border border-dashed border-ask/40 bg-ask-bg/30 px-3 py-2 text-xs text-muted">
+            <p className="rounded-xl border border-dashed border-ask/40 bg-ask-bg/40 px-4 py-3 text-sm text-ink/80">
               No Ask me items in this thread.{" "}
-              <button onClick={askHint.onOpen} className="font-medium text-ask underline underline-offset-4">See an Ask me example in the Brand identity sample</button>
+              <button onClick={askHint.onOpen} className="font-semibold text-ask underline underline-offset-4">See an Ask me example in the Brand identity sample</button>
             </p>
           )}
           {QUEUE_ORDER.filter((q) => groups.get(q)?.length).map((q) => (
-            <div key={q} className="space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-2">
+            <section key={q} id={`queue-${q}`} aria-labelledby={`h-${q}`} className="scroll-mt-6 space-y-4">
+              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
                 <div>
-                  <h3 className={`font-display text-lg ${QUEUES[q].text}`}>{QUEUES[q].label} <span className="text-sm text-muted">({groups.get(q)!.length})</span></h3>
-                  <p className="text-xs text-muted">{QUEUES[q].blurb}</p>
+                  <h3 id={`h-${q}`} className={`t-h3 ${QUEUES[q].text}`}>{QUEUES[q].label} <span className="ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold tnum" style={{ background: "var(--color-paper-deep)", color: "var(--color-ink)" }}>{groups.get(q)!.length}</span></h3>
+                  <p className="mt-0.5 text-sm text-muted">{QUEUES[q].blurb}</p>
                 </div>
                 {q === "needs_change_order" && preparable.length > 1 && (
-                  <button onClick={onPrepareAll} className="rounded-md border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy hover:border-navy">
+                  <button onClick={onPrepareAll} className="rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card transition hover:border-navy">
                     Prepare all ({preparable.length}) · about {preparable.length * 10} credits
                   </button>
                 )}
               </div>
               {groups.get(q)!.map(card)}
-            </div>
+            </section>
           ))}
         </div>
 
-        <aside className={`${tab === "thread" ? "" : "hidden"} lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1`}>
-          <h3 className="mb-2 font-display text-lg">Thread</h3>
+        <aside className={`${tab === "thread" ? "" : "hidden"} lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1`}>
+          <h3 className="t-h3 mb-3">Thread</h3>
           <ThreadView analysis={analysis} openIds={openCO} activeId={activeId} onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} />
         </aside>
       </div>
 
-      <footer className="border-t border-line pt-3 text-xs text-muted">
-        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, change orders {analysis.usage.fill.credits}, verify {analysis.usage.verify?.credits ?? 0}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
+      <footer className="border-t border-line pt-4 text-xs leading-5 text-muted">
+        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink tnum">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, change orders {analysis.usage.fill.credits}, verify {analysis.usage.verify?.credits ?? 0}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
       </footer>
     </section>
   );
