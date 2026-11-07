@@ -1,6 +1,6 @@
 // Orchestration: Extract per CLIENT message -> Decide per request -> Route. Runs in the browser (or Node for evals).
 import type { ClockedClient } from "./clocked";
-import { ClockedError } from "./clocked";
+import { ClockedError, type ErrorKind } from "./clocked";
 import type { ClockedUsage, DecideNoul, DecideResponse, ExtractResponse, FillResponse } from "./clocked-types";
 import { buildDecideRequest, buildExtractRequest, buildFillRequest } from "./prompts";
 import { route, type RouteResult } from "./routing";
@@ -28,9 +28,10 @@ export interface RequestItem {
   verdict?: Verdict;
   route?: RouteResult;
   error?: string;
+  errorKind?: ErrorKind;
 }
 
-export interface MessageState { messageIndex: number; status: Status; error?: string; requestCount?: number }
+export interface MessageState { messageIndex: number; status: Status; error?: string; errorKind?: ErrorKind; requestCount?: number }
 
 export interface Analysis {
   messages: Message[];
@@ -88,6 +89,56 @@ export async function decideRequest(client: ClockedClient, inputs: Inputs, reque
   return { verdict, route: route(verdict), usage };
 }
 
+/** Re-runs Decide for one item (used by the first run and by Retry). */
+export async function runDecide(a: Analysis, item: RequestItem, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  item.status = "running";
+  item.error = undefined;
+  item.errorKind = undefined;
+  emit();
+  try {
+    const d = await decideRequest(client, inputs, item.text);
+    addUsage(a, "decide", d.usage);
+    item.verdict = d.verdict;
+    item.route = d.route;
+    item.status = "done";
+  } catch (e) {
+    item.status = "failed";
+    item.error = (e as Error).message;
+    item.errorKind = e instanceof ClockedError ? e.kind : undefined;
+  }
+  emit();
+}
+
+/** Extract for one client message, then Decide for each request found. Also used by Retry. */
+export async function runMessage(a: Analysis, msg: Message, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  const st = a.messageStates.find((m) => m.messageIndex === msg.index)!;
+  st.status = "running";
+  st.error = undefined;
+  st.errorKind = undefined;
+  a.items = a.items.filter((i) => i.messageIndex !== msg.index);
+  emit();
+  let found: Awaited<ReturnType<typeof extractMessage>>;
+  try {
+    found = await extractMessage(client, msg);
+  } catch (e) {
+    st.status = "failed";
+    st.error = (e as Error).message;
+    st.errorKind = e instanceof ClockedError ? e.kind : undefined;
+    emit();
+    return;
+  }
+  addUsage(a, "extract", found.usage);
+  st.status = "done";
+  st.requestCount = found.requests.length;
+  const mine = found.requests.map((r, k): RequestItem => ({ id: `${msg.index}-${k}`, messageIndex: msg.index, text: r.text, evidence: r.evidence, status: "running" }));
+  a.items.push(...mine);
+  sortItems(a);
+  emit();
+  await Promise.all(mine.map((item) => runDecide(a, item, inputs, client, emit)));
+}
+
+const sortItems = (a: Analysis) => a.items.sort((x, y) => x.messageIndex - y.messageIndex || x.id.localeCompare(y.id, undefined, { numeric: true }));
+
 /** Full analysis. `onUpdate` receives the (mutated) state after every change; partial results are always kept. */
 export async function analyze(inputs: Inputs, client: ClockedClient, onUpdate: (a: Analysis) => void = () => {}): Promise<Analysis> {
   const messages = parseThread(inputs.thread, inputs.clientName);
@@ -95,46 +146,8 @@ export async function analyze(inputs: Inputs, client: ClockedClient, onUpdate: (
   const a: Analysis = { messages, messageStates: clientMsgs.map((m) => ({ messageIndex: m.index, status: "pending" })), items: [], usage: emptyUsage() };
   const emit = () => onUpdate(a);
   emit();
-
-  await Promise.all(
-    clientMsgs.map(async (msg, n) => {
-      const st = a.messageStates[n];
-      st.status = "running";
-      emit();
-      let found: Awaited<ReturnType<typeof extractMessage>>;
-      try {
-        found = await extractMessage(client, msg);
-      } catch (e) {
-        st.status = "failed";
-        st.error = (e as Error).message;
-        emit();
-        return;
-      }
-      addUsage(a, "extract", found.usage);
-      st.status = "done";
-      st.requestCount = found.requests.length;
-      const mine = found.requests.map((r, k): RequestItem => ({ id: `${msg.index}-${k}`, messageIndex: msg.index, text: r.text, evidence: r.evidence, status: "running" }));
-      a.items.push(...mine);
-      emit();
-      await Promise.all(
-        mine.map(async (item) => {
-          try {
-            const d = await decideRequest(client, inputs, item.text);
-            addUsage(a, "decide", d.usage);
-            item.verdict = d.verdict;
-            item.route = d.route;
-            item.status = "done";
-          } catch (e) {
-            item.status = "failed";
-            item.error = (e as Error).message;
-          }
-          emit();
-        }),
-      );
-    }),
-  );
-  // Stable order regardless of completion order.
-  a.items.sort((x, y) => x.messageIndex - y.messageIndex || x.id.localeCompare(y.id, undefined, { numeric: true }));
+  await Promise.all(clientMsgs.map((msg) => runMessage(a, msg, inputs, client, emit)));
+  sortItems(a);
   emit();
   return a;
 }
