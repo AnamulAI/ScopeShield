@@ -14,7 +14,7 @@ export function HowItWorks({ analysis, recorded }: { analysis: Analysis | null; 
     <details className="group surface">
       <summary className="flex list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold">
         <span className="flex flex-wrap items-baseline gap-x-3"><span className="t-h3">How it works</span><span className="font-normal text-muted">four Clocked endpoints, 30 seconds</span></span>
-        <span aria-hidden className="text-muted transition group-open:rotate-180">▾</span>
+        <span aria-hidden className="text-muted transition-transform group-open:rotate-180">▾</span>
       </summary>
       <div className="space-y-4 border-t border-line px-5 py-5 text-sm leading-6">
         <p className="text-muted">You paste the contract and a thread, and say who the client is. The app calls Clocked in small steps from your browser, three at a time, and keeps partial results if a step fails.</p>

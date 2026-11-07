@@ -2,11 +2,13 @@ import { useState } from "react";
 import { formatHours, formatMoney, scopeHealth } from "../lib/health";
 import type { RequestItem } from "../lib/pipeline";
 import { QUEUE_ORDER, QUEUES } from "./queues";
+import { QueueIcon } from "./icons";
+import { CountUp } from "./motion";
 
 const BAR: Record<string, string> = { needs_change_order: "bg-change", ask_me: "bg-ask", agreed_extra: "bg-agreed", in_scope: "bg-scope" };
 
 /** Where requests landed (counts per queue, linking to each section) and the rough unpaid-effort estimate. */
-export function ScopeHealth({ items }: { items: RequestItem[] }) {
+export function ScopeHealth({ items, ready = true }: { items: RequestItem[]; ready?: boolean }) {
   const [rateText, setRateText] = useState("");
   const h = scopeHealth(items);
   const active = h.counts.needs_change_order + h.counts.ask_me + h.counts.agreed_extra + h.counts.in_scope;
@@ -31,9 +33,9 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {QUEUE_ORDER.map((q) => (
             <li key={q} className="last:col-span-2 sm:last:col-span-1">
-              <a href={`#queue-${q}`} className={`block rounded-xl border-l-4 px-3 py-3 transition hover:-translate-y-0.5 hover:shadow-card ${QUEUES[q].bg} ${QUEUES[q].border}`}
+              <a href={`#queue-${q}`} className={`block rounded-xl border-l-4 px-3 py-3 transition-transform hover:-translate-y-0.5 hover:shadow-card ${QUEUES[q].bg} ${QUEUES[q].border}`}
                 aria-label={`${QUEUES[q].label}: ${h.counts[q]}. Jump to this queue`}>
-                <span className={`font-display text-[2rem] leading-none tnum ${QUEUES[q].text}`}>{h.counts[q]}</span>
+                <span className={`flex items-center justify-between ${QUEUES[q].text}`}><CountUp text={String(h.counts[q])} ready={ready} className="font-display text-[2rem] leading-none" /><QueueIcon queue={q} width={20} height={20} /></span>
                 <span className="mt-1 block text-xs font-semibold leading-4 text-ink/85">{QUEUES[q].label}</span>
               </a>
             </li>
@@ -56,7 +58,7 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
 
       <div className="order-1 rounded-2xl bg-navy p-5 text-paper shadow-lift sm:p-6 lg:order-2 lg:self-start">
         <p className="t-eyebrow text-paper/85">Scope health · unpaid work found</p>
-        <p className="mt-3 font-display text-[3rem] leading-none tnum">{headline}</p>
+        <p className="mt-3 font-display text-[3rem] leading-none"><CountUp text={headline} ready={ready} /></p>
         <p className="mt-3 text-sm text-paper/85">{items.length === 0 ? "No requests analysed yet. " : ""}{hc.max === null && hc.items > 0 ? "at least, " : ""}across {hc.items} request{hc.items === 1 ? "" : "s"} needing a change order</p>
         {confirmedMoney && <p className="mt-1 text-sm font-semibold">≈ {confirmedMoney} at your rate</p>}
         <div className="mt-4 border-t border-paper/20 pt-4 text-sm">

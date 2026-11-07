@@ -6,7 +6,7 @@ import { SAMPLES } from "../lib/samples";
 export interface Inputs { contract: string; thread: string; clientName: string }
 interface Props { value: Inputs; onChange: (v: Inputs) => void; onAnalyze: () => void; busy: boolean }
 
-const field = "w-full rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6 shadow-[inset_0_1px_2px_rgb(26_33_51/0.05)] placeholder:text-muted/80 transition focus:border-navy";
+const field = "w-full rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6 shadow-[inset_0_1px_2px_rgb(26_33_51/0.05)] placeholder:text-muted/80 focus:border-navy";
 
 export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
   const check = useMemo(() => checkInputs(value.contract, value.thread, value.clientName), [value]);
@@ -18,7 +18,7 @@ export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
       <div className="flex flex-wrap items-center gap-3">
         {SAMPLES.map((sm) => (
           <button key={sm.id} type="button" onClick={() => onChange({ contract: sm.contract, thread: sm.thread, clientName: sm.clientName })}
-            className="rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card transition hover:border-navy/50">
+            className="rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card press hover:border-navy/50">
             Load sample: {sm.title}
           </button>
         ))}
@@ -55,12 +55,12 @@ export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
             <span>Speakers found:</span>
             {check.speakers.map((s) => (
               <button type="button" key={s} onClick={() => set({ clientName: s })}
-                className="rounded-full border border-line bg-paper px-3 py-1 font-medium text-ink transition hover:border-navy">{s}</button>
+                className="rounded-full border border-line bg-paper px-3 py-1 font-medium text-ink press hover:border-navy">{s}</button>
             ))}
           </div>
         )}
         <button type="submit" disabled={!check.ok || busy}
-          className="ml-auto rounded-xl bg-navy px-7 py-3 text-sm font-semibold text-paper shadow-lift transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
+          className="ml-auto rounded-xl bg-navy px-7 py-3 text-sm font-semibold text-paper shadow-lift press hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
           {busy ? "Analysing…" : "Analyze thread"}
         </button>
       </div>

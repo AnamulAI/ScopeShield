@@ -7,6 +7,7 @@ import { InputPanel, type Inputs } from "./components/InputPanel";
 import { HowItWorks } from "./components/HowItWorks";
 import { Results } from "./components/Results";
 import { ResultsSkeleton } from "./components/Skeleton";
+import { HeroFlow } from "./components/HeroFlow";
 
 type Mode = "demo" | "live";
 interface DemoIndexEntry { id: string; title: string; blurb: string; recordedAt: string }
@@ -108,7 +109,7 @@ export default function App() {
 
   const modeCard = (m: Mode, title: string, line: string, meta: string) => (
     <button type="button" aria-pressed={mode === m} onClick={() => switchMode(m)}
-      className={`group flex flex-1 flex-col items-start gap-1 rounded-2xl border p-4 text-left transition sm:p-5 ${mode === m ? "border-navy bg-navy text-paper shadow-lift" : "border-line bg-card shadow-card hover:border-navy/40"}`}>
+      className={`group flex flex-1 flex-col items-start gap-1 rounded-2xl border p-4 text-left press sm:p-5 ${mode === m ? "border-navy bg-navy text-paper shadow-lift" : "border-line bg-card shadow-card hover:border-navy/40"}`}>
       <span className="flex w-full items-center justify-between gap-3">
         <span className="t-h3">{title}</span>
         <span aria-hidden className={`flex h-5 w-5 items-center justify-center rounded-full border ${mode === m ? "border-paper bg-paper text-navy" : "border-line"}`}>{mode === m ? "✓" : ""}</span>
@@ -135,6 +136,7 @@ export default function App() {
           <p className="mt-4 max-w-xl text-[1.0625rem] leading-7 text-ink/85">
             “Let me think about it” is not a yes. ScopeShield reads a client thread against your contract, and only counts what the client clearly agreed to.
           </p>
+          <div className="mt-8"><HeroFlow /></div>
         </div>
         <div role="group" aria-label="Choose a mode" className="flex flex-col gap-3 sm:flex-row">
           {modeCard("demo", "Demo", "Explore three recorded real results. No setup, no API calls.", "3 samples · 0 credits")}
@@ -147,19 +149,21 @@ export default function App() {
 
         {mode === "demo" ? (
           <section className="space-y-5" aria-label="Demo mode">
-            <div className="flex flex-wrap items-center gap-3" role="group" aria-label="Sample threads">
+            <div className="flex min-h-10 flex-wrap items-center gap-3" role="group" aria-label="Sample threads">
               <span className="t-eyebrow text-muted">Sample thread</span>
+              {!demoIndex && [112, 128, 120].map((w) => <span key={w} aria-hidden className="skeleton h-10 rounded-full" style={{ width: w }} />)}
               {(demoIndex ?? []).map((d) => (
                 <button key={d.id} onClick={() => setDemoId(d.id)} aria-pressed={demoId === d.id} title={d.blurb}
-                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${demoId === d.id ? "border-navy bg-navy text-paper" : "border-line bg-card text-navy shadow-card hover:border-navy/50"}`}>{d.title}</button>
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold press ${demoId === d.id ? "border-navy bg-navy text-paper" : "border-line bg-card text-navy shadow-card hover:border-navy/50"}`}>{d.title}</button>
               ))}
             </div>
-            {snap && <p className="max-w-2xl text-[0.9375rem] text-ink/80">{demoIndex?.find((d) => d.id === demoId)?.blurb}</p>}
+            <p className="min-h-6 max-w-2xl text-[0.9375rem] text-ink/80">{demoIndex?.find((d) => d.id === demoId)?.blurb}</p>
             <div className="flex gap-3 rounded-xl border border-agreed/25 bg-agreed-bg/70 px-4 py-3 text-sm text-ink">
               <span aria-hidden className="mt-0.5 text-agreed">●</span>
               <p>
-                <b>Recorded from a live Clocked run{snap ? ` on ${snap.recordedAt}` : ""}.</b>{" "}
-                {snap ? `Recording it used ${snap.credits.total} credits. ` : ""}
+                {/* The text has the same length before and after the data loads (invisible placeholders), so nothing shifts. */}
+                <b>Recorded from a live Clocked run on <span className={snap ? "" : "invisible"}>{snap?.recordedAt ?? "2026-11-07"}</span>.</b>{" "}
+                <span className={snap ? "" : "invisible"}>Recording it used {snap?.credits.total ?? 167} credits.</span>{" "}
                 Synthetic data, made-up people. Demo mode makes no API calls, so you can click around freely: answer Ask me cards, undo, copy a change order.{" "}
                 <button onClick={() => switchMode("live")} className="font-semibold text-navy underline underline-offset-4">Run live on your own contract and thread →</button>
               </p>

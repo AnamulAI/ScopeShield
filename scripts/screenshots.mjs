@@ -28,6 +28,23 @@ let id = 0; const waiters = new Map();
 ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && waiters.has(d.id)) { waiters.get(d.id)(d); waiters.delete(d.id); } };
 const send = (method, params = {}) => new Promise((res) => { const i = ++id; waiters.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
 
+const heroClip = async (name, width, setup) => {
+  await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: "about:blank" });
+  await sleep(300);
+  if (setup.reduced) await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  else await send("Emulation.setEmulatedMedia", { features: [] });
+  await send("Page.navigate", { url: `${BASE}/#sample=bakery` });
+  await sleep(setup.freezeAt ? 700 : 4500);
+  if (setup.freezeAt) await send("Runtime.evaluate", { expression: `document.getAnimations().filter(a=>/flow|shield|fade/.test(a.animationName||'')).forEach(a=>{a.pause();a.currentTime=${setup.freezeAt}})` });
+  await sleep(300);
+  const n = (await send("Runtime.evaluate", { expression: "document.getAnimations().filter(a=>/flow|shield|fade|rise/.test(a.animationName||'')).length", returnByValue: true })).result.result.value;
+  const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 40, width, height: 520, scale: 1 } });
+  writeFileSync(`docs/screenshots/${name}.png`, Buffer.from(shot.result.data, "base64"));
+  console.log(name, "running animations:", n);
+  await send("Emulation.setEmulatedMedia", { features: [] });
+};
+
 for (const [name, width, path, opts] of SHOTS) {
   await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: width < 500 });
   await send("Page.navigate", { url: "about:blank" }); // hash-only changes do not reload, so leave the page first
@@ -40,4 +57,6 @@ for (const [name, width, path, opts] of SHOTS) {
   writeFileSync(`docs/screenshots/${name}.png`, Buffer.from(shot.result.data, "base64"));
   console.log(name, width, height);
 }
+await heroClip("hero-mid-animation", 1280, { freezeAt: 1500 });
+await heroClip("hero-reduced-motion", 1280, { reduced: true });
 ws.close(); chrome.kill();

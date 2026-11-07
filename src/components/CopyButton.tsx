@@ -28,7 +28,7 @@ export function CopyButton({ text, label, blockedReason, primary }: Props) {
     <span className="inline-flex items-center gap-2">
       <button type="button" disabled={blocked} title={blockedReason}
         onClick={async () => { setState((await copy(text)) ? "done" : "fail"); window.clearTimeout(t.current); t.current = window.setTimeout(() => setState("idle"), 2000); }}
-        className={`rounded-xl px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${primary ? "bg-navy text-paper shadow-lift hover:bg-navy/90 disabled:shadow-none" : "border border-navy/30 bg-card text-navy shadow-card hover:border-navy"}`}>
+        className={`rounded-xl px-4 py-2 text-sm font-semibold press disabled:cursor-not-allowed disabled:opacity-40 ${primary ? "bg-navy text-paper shadow-lift hover:bg-navy/90 disabled:shadow-none" : "border border-navy/30 bg-card text-navy shadow-card hover:border-navy"}`}>
         {label}
       </button>
       <span role="status" className="text-xs text-muted">{state === "done" ? "Copied" : state === "fail" ? "Copy failed. Select the text manually." : ""}</span>

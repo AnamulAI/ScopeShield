@@ -3,6 +3,8 @@ import { forwardRef } from "react";
 import type { RequestItem } from "../lib/pipeline";
 import { effortLabel } from "../lib/health";
 import { askQuestion, effectiveQueue, showWithdrawalNote, THRESHOLDS, type Decision } from "../lib/routing";
+import { QueueIcon, UndoIcon } from "./icons";
+import type { Queue } from "../lib/routing";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { ProbBar } from "./ProbBar";
 import { QUEUES } from "./queues";
@@ -19,11 +21,11 @@ export interface CardActions {
   onAck: () => void;
   onRetryVerify: () => void;
 }
-interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string; coOpen: boolean; setCoOpen: (v: boolean) => void }
+interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string; coOpen: boolean; setCoOpen: (v: boolean) => void; /** position in its queue, for the short reveal stagger */ revealIndex?: number }
 
-const btn = "rounded-lg border px-4 py-2 text-sm font-semibold transition";
+const btn = "rounded-lg border px-4 py-2 text-sm font-semibold press";
 
-export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport, onAck, onRetryVerify }, ref) {
+export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, revealIndex = 0, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport, onAck, onRetryVerify }, ref) {
   const eq = effectiveQueue(item.route, item.decision);
   const modelQ = item.route ? QUEUES[item.route.queue] : null;
   const withdrawn = eq === "withdrawn";
@@ -34,11 +36,12 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
   const pill = eq !== "pending" ? QUEUES[eq] : null;
   return (
     <article ref={ref} id={`card-${item.id}`} aria-busy={item.status === "running"}
-      className={`rise surface border-l-4 p-5 transition sm:p-6 ${accent} ${active ? "ring-2 ring-navy/30" : ""}`}>
+      style={{ "--i": revealIndex } as React.CSSProperties}
+      className={`rise surface border-l-4 p-5 sm:p-6 ${accent} ${active ? "ring-2 ring-navy/30" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {pill ? (
           <span className={`t-eyebrow inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${pill.bg} ${pill.text}`}>
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />{pill.label}{item.decision && item.route?.queue === "ask_me" ? " · your decision" : ""}
+            <QueueIcon queue={eq as Queue} width={16} height={16} />{pill.label}{item.decision && item.route?.queue === "ask_me" ? " · your decision" : ""}
           </span>
         ) : <span className="t-eyebrow text-muted">Checking</span>}
         <span className="text-xs text-muted">{speaker} · message {item.messageIndex + 1}{item.evidence ? "" : " · exact sentence could not be located"}</span>
@@ -52,7 +55,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
       {item.status === "failed" && (
         <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-change/30 bg-change-bg px-4 py-3 text-sm">
           <span className="text-ink"><b className="text-change">{describeError(item.errorKind, item.error).title}</b> {describeError(item.errorKind, item.error).hint}</span>
-          <button onClick={onRetry} className="rounded-lg bg-navy px-4 py-1.5 text-xs font-semibold text-paper shadow-card transition hover:bg-navy/90">Retry</button>
+          <button onClick={onRetry} className="rounded-lg bg-navy px-4 py-1.5 text-xs font-semibold text-paper shadow-card press hover:bg-navy/90">Retry</button>
         </div>
       )}
 
@@ -80,23 +83,23 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
               <p className="t-eyebrow text-ask">One question for you</p>
               <p className="font-display mt-1.5 text-[1.1875rem] leading-snug" id={`q-${item.id}`}>{askQuestion(item.text, item.route.ask)}</p>
               <div role="group" aria-labelledby={`q-${item.id}`} className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2.5">
-                <button onClick={() => onDecide("in_scope")} className="rounded-xl border border-scope/40 bg-card px-4 py-3 text-left shadow-card transition hover:border-scope hover:shadow-lift">
+                <button onClick={() => onDecide("in_scope")} className="rounded-xl border border-scope/40 bg-card px-4 py-3 text-left shadow-card press hover:border-scope hover:shadow-lift">
                   <span className="block text-sm font-semibold text-scope">In scope</span><span className="block text-xs text-muted">It was part of the deal</span>
                 </button>
-                <button onClick={() => onDecide("extra")} className="rounded-xl border border-change/40 bg-card px-4 py-3 text-left shadow-card transition hover:border-change hover:shadow-lift">
+                <button onClick={() => onDecide("extra")} className="rounded-xl border border-change/40 bg-card px-4 py-3 text-left shadow-card press hover:border-change hover:shadow-lift">
                   <span className="block text-sm font-semibold text-change">Extra work</span><span className="block text-xs text-muted">Prepare a change order</span>
                 </button>
-                <button onClick={() => onDecide("skip")} className="rounded-xl border border-line bg-card px-4 py-3 text-left shadow-card transition hover:border-ink/40 hover:shadow-lift">
+                <button onClick={() => onDecide("skip")} className="rounded-xl border border-line bg-card px-4 py-3 text-left shadow-card press hover:border-ink/40 hover:shadow-lift">
                   <span className="block text-sm font-semibold text-ink/80">Skip</span><span className="block text-xs text-muted">Decide later</span>
                 </button>
               </div>
               <p className="mt-3 text-xs text-muted">Your answer is recorded below and you can undo it.</p>
             </>
           ) : (
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <p className="pop-in flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span>Your decision: <b>{DECISION_LABEL[item.decision!]}</b></span>
               <span className="text-xs text-muted">(model said: Ask me)</span>
-              <button onClick={() => onDecide(undefined)} className="text-xs font-semibold text-navy underline underline-offset-4">Undo</button>
+              <button onClick={() => onDecide(undefined)} className="press inline-flex items-center gap-1 text-xs font-semibold text-navy underline underline-offset-4"><UndoIcon className="undo-icon" width={14} height={14} />Undo</button>
             </p>
           )}
         </div>

@@ -9,7 +9,7 @@ export function ErrorBanner({ described, failures, onSwitchDemo }: { described: 
         <p><b className="text-change">{described.title}</b> {described.hint}</p>
         {failures > 0 && <p className="text-muted">{failures} step{failures === 1 ? "" : "s"} failed. Everything else is kept, and each failed item has its own Retry.</p>}
         {described.demo && onSwitchDemo && (
-          <button onClick={onSwitchDemo} className="mt-1 rounded-lg bg-navy px-4 py-2 text-xs font-semibold text-paper shadow-card transition hover:bg-navy/90">Switch to Demo mode</button>
+          <button onClick={onSwitchDemo} className="mt-1 rounded-lg bg-navy px-4 py-2 text-xs font-semibold text-paper shadow-card press hover:bg-navy/90">Switch to Demo mode</button>
         )}
       </div>
     </div>

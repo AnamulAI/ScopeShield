@@ -61,18 +61,69 @@ body {
 /* Surfaces */
 .surface { background: var(--color-card); border: 1px solid var(--color-line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
 
-/* Motion */
-@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgb(27 42 65 / .38); } 100% { box-shadow: 0 0 0 12px rgb(27 42 65 / 0); } }
-.flash { animation: pulse-ring .9s ease-out 1; }
+/* Motion. Rules: animate ONLY transform and opacity, no libraries, nothing delays content, no layout shift.
+   Reduced motion: every animation is switched off and the final state is simply shown (see the media query). */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { width: .9rem; height: .9rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 9999px; animation: spin .7s linear infinite; display: inline-block; }
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.skeleton { background: linear-gradient(100deg, var(--color-paper-deep) 30%, var(--color-card) 50%, var(--color-paper-deep) 70%); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; border-radius: 8px; }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.rise { animation: rise .35s ease-out both; }
+
+/* Loading skeleton: opacity pulse (no background movement) */
+@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.skeleton { background: var(--color-paper-deep); animation: pulse-soft 1.5s ease-in-out infinite; border-radius: 8px; }
+
+/* Cards reveal: short stagger via --i (set inline, capped in code). Final state is the normal state. */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .4s cubic-bezier(.2,.7,.2,1) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+
+/* Probability bars: the fill slides in from the left once the bar is first visible (clipped by its parent, so no distortion) */
+@keyframes bar-in { from { transform: translateX(-101%); } to { transform: translateX(0); } }
+.bar-fill { transform: translateX(-101%); }
+.bar-fill.is-in { animation: bar-in .7s cubic-bezier(.2,.7,.2,1) forwards; }
+.bar-static .bar-fill, .bar-fill.is-static { transform: none; animation: none; }
+
+/* "Show in thread": an underline sweeps across the highlight, then fades. Active highlight also gets a static outline in code. */
+mark.sweep { position: relative; }
+mark.sweep::after { content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; border-radius: 2px; background: var(--color-navy); transform-origin: left center; animation: sweep .9s cubic-bezier(.2,.7,.2,1) both; pointer-events: none; }
+@keyframes sweep { 0% { transform: scaleX(0); opacity: 1; } 55% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+
+/* Small physical responses: buttons lift on hover and press in */
+.press { transition: transform .15s ease, opacity .15s ease; }
+.press:hover:not(:disabled) { transform: translateY(-1px); }
+.press:active:not(:disabled) { transform: translateY(0) scale(.98); }
+@keyframes pop-in { from { opacity: 0; transform: scale(.97) translateY(4px); } to { opacity: 1; transform: none; } }
+.pop-in { animation: pop-in .25s cubic-bezier(.2,.7,.2,1) both; }
+.undo-icon { transition: transform .25s ease; }
+button:hover > .undo-icon, button:focus-visible > .undo-icon { transform: rotate(-35deg); }
+
+/* Hero: client messages pass through the shield and sort into the five queues. ~3.4 s, plays once.
+   The BASE style of each line is its final, sorted position, so reduced motion / no animation shows the finished picture. */
+.flow-item { transform: translate(var(--dx), var(--dy)); }
+.flow-tint { opacity: 1; }
+.flow-neutral { opacity: 0; }
+.flow-lane { opacity: 1; }
+.flow-shield { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .flow-item { animation: flow-move 2.5s cubic-bezier(.45,.05,.3,1) backwards; animation-delay: calc(var(--n) * 170ms + 150ms); }
+  .flow-tint { animation: flow-tint 2.5s linear backwards; animation-delay: calc(var(--n) * 170ms + 150ms); }
+  .flow-neutral { animation: flow-untint 2.5s linear backwards; animation-delay: calc(var(--n) * 170ms + 150ms); }
+  .flow-lane { animation: fade-in .6s ease-out backwards; }
+  .flow-shield { animation: shield-pulse 2.8s ease-in-out 1 backwards; transform-origin: center; transform-box: fill-box; animation-delay: .2s; }
+}
+@keyframes flow-move {
+  0% { transform: translate(0, 0); opacity: 0; }
+  8% { opacity: 1; }
+  38% { transform: translate(var(--mx), 0); }
+  54% { transform: translate(var(--mx), 0); }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 1; }
+}
+@keyframes flow-untint { 0%, 50% { opacity: 1; } 58%, 100% { opacity: 0; } }
+@keyframes flow-tint { 0%, 50% { opacity: 0; } 58%, 100% { opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shield-pulse { 0% { opacity: .55; transform: scale(.96); } 25% { opacity: 1; transform: scale(1); } 100% { opacity: 1; transform: scale(1); } }
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
-  .skeleton { background: var(--color-paper-deep); }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .bar-fill { transform: none !important; }
+  .rise, .pop-in { opacity: 1 !important; transform: none !important; }
 }
 
 /* Focus: always visible for keyboard users, with an offset ring that works on paper, cards and navy buttons */

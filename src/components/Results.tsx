@@ -5,6 +5,7 @@ import { RequestCard } from "./RequestCard";
 import { describeError, worstKind } from "../lib/errors";
 import { QUEUE_ORDER, QUEUES } from "./queues";
 import { ErrorBanner } from "./ErrorBanner";
+import { QueueIcon } from "./icons";
 import { ScopeHealth } from "./ScopeHealth";
 import { ThreadView } from "./ThreadView";
 
@@ -58,8 +59,8 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const total = analysis.items.length;
-  const card = (item: (typeof analysis.items)[number]) => (
-    <RequestCard key={item.id} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
+  const card = (item: (typeof analysis.items)[number], i = 0) => (
+    <RequestCard key={item.id} revealIndex={Math.min(i, 5)} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
       coOpen={openCO.has(item.id)} setCoOpen={(v) => setCoOpen(item.id, v)}
       onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => { if (d === "extra") setCoOpen(item.id, true); onDecide(item.id, d); }}
       onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} onAck={() => onAck(item.id)} onRetryVerify={() => onRetryVerify(item.id)} />
@@ -82,17 +83,17 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
         </div>
         {running && (
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-paper-deep" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Reading client messages">
-            <div className="h-full rounded-full bg-navy transition-[width] duration-500" style={{ width: `${Math.max(pct, 6)}%` }} />
+            <div className="h-full origin-left rounded-full bg-navy transition-transform duration-500" style={{ transform: `scaleX(${Math.max(pct, 6) / 100})` }} />
           </div>
         )}
-        <div className="mt-6"><ScopeHealth items={analysis.items} /></div>
+        <div className="mt-6"><ScopeHealth items={analysis.items} ready={finished} /></div>
         {described && <ErrorBanner described={described} failures={finished ? failures : 0} onSwitchDemo={onSwitchDemo} />}
       </div>
 
       <div className="flex gap-2 lg:hidden" role="group" aria-label="Show findings or thread">
         {(["findings", "thread"] as const).map((t) => (
           <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}
-            className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${tab === t ? "bg-navy text-paper shadow-lift" : "border border-line bg-card text-navy"}`}>
+            className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold press ${tab === t ? "bg-navy text-paper shadow-lift" : "border border-line bg-card text-navy"}`}>
             {t === "findings" ? "Findings" : "Thread"}
           </button>
         ))}
@@ -109,13 +110,13 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
           {groups.has("pending") && (
             <div className="space-y-4">
               <h3 className="t-eyebrow text-muted">Checking</h3>
-              {groups.get("pending")!.map(card)}
+              {groups.get("pending")!.map((it, i) => card(it, i))}
             </div>
           )}
           {askHint && finished && !groups.get("ask_me")?.length && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ask/30 bg-ask-bg/50 px-5 py-4">
               <p className="text-sm text-ink/85"><b>No Ask me items in this thread.</b> That is where the app asks you one question when it is unsure.</p>
-              <button onClick={askHint.onOpen} className="rounded-xl border border-ask/50 bg-card px-4 py-2 text-sm font-semibold text-ask shadow-card transition hover:border-ask hover:shadow-lift">
+              <button onClick={askHint.onOpen} className="rounded-xl border border-ask/50 bg-card px-4 py-2 text-sm font-semibold text-ask shadow-card press hover:border-ask hover:shadow-lift">
                 See an Ask me example in the Brand identity sample →
               </button>
             </div>
@@ -124,16 +125,16 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
             <section key={q} id={`queue-${q}`} aria-labelledby={`h-${q}`} className="scroll-mt-6 space-y-4">
               <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
                 <div>
-                  <h3 id={`h-${q}`} className={`t-h3 ${QUEUES[q].text}`}>{QUEUES[q].label} <span className="ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold tnum" style={{ background: "var(--color-paper-deep)", color: "var(--color-ink)" }}>{groups.get(q)!.length}</span></h3>
+                  <h3 id={`h-${q}`} className={`t-h3 flex flex-wrap items-center gap-2 ${QUEUES[q].text}`}><QueueIcon queue={q} width={22} height={22} />{QUEUES[q].label} <span className="ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold tnum" style={{ background: "var(--color-paper-deep)", color: "var(--color-ink)" }}>{groups.get(q)!.length}</span></h3>
                   <p className="mt-0.5 text-sm text-muted">{QUEUES[q].blurb}</p>
                 </div>
                 {q === "needs_change_order" && preparable.length > 1 && (
-                  <button onClick={onPrepareAll} className="rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card transition hover:border-navy">
+                  <button onClick={onPrepareAll} className="rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card press hover:border-navy">
                     Prepare all ({preparable.length}) · about {preparable.length * 10} credits
                   </button>
                 )}
               </div>
-              {groups.get(q)!.map(card)}
+              {groups.get(q)!.map((it, i) => card(it, i))}
             </section>
           ))}
         </div>
