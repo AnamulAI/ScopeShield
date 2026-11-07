@@ -109,23 +109,24 @@ const clientFor = (responses: unknown[], seen: any[] = []) =>
       return new Response(JSON.stringify(responses.shift()), { status: 200, headers: { "x-clocked-credits": "8" } });
     }) as unknown as typeof fetch,
   });
+const verifyOk = { claims: [{ claim: "A blog is extra.", kind: "claim", verdict: "supported", supported: 0.9, contradicted: 0, not_stated: 0, source: "thread" }] };
 const inputs = { contract: "Fixed price $800", thread: "Client: Please add a blog.\nDev: A blog is extra.", clientName: "Client" };
 const blank = (): { a: Analysis; item: RequestItem } => ({ a: { messages: [], messageStates: [], items: [], usage: emptyUsage() }, item: { id: "0-0", messageIndex: 0, text: "add a blog", evidence: null, status: "done" } });
 
 describe("runFill guard", () => {
   it("blocks Copy on an invented amount, allows exactly ONE strict Regenerate, then stays blocked if still invented", async () => {
     const seen: any[] = [];
-    const client = clientFor([fillRes("That will be $250."), fillRes("Still $300 for this."), fillRes("never used")], seen);
+    const client = clientFor([fillRes("That will be $250."), verifyOk, fillRes("Still $300 for this."), verifyOk, fillRes("never used")], seen);
     const { a, item } = blank();
     await runFill(a, item, inputs, client, () => {});
     expect(item.changeOrder!.data!.inventedMessage).toEqual(["$250"]);
     expect(copyBlocked(item.changeOrder!.data!)).toBe(true);
     await runFill(a, item, inputs, client, () => {}, true);
-    expect(seen[1].instructions).toContain("Do not write any currency amount");
+    expect(seen[2].instructions).toContain("Do not write any currency amount");
     expect(copyBlocked(item.changeOrder!.data!)).toBe(true);
     expect(item.changeOrder!.regenerated).toBe(true);
     await runFill(a, item, inputs, client, () => {}, true); // second Regenerate is refused
-    expect(seen).toHaveLength(2);
+    expect(seen).toHaveLength(4); // fill, verify, fill, verify
     expect(a.usage.fill.credits).toBe(16);
   });
   it("allows Copy when amounts come from the thread or contract, and when none are present", async () => {

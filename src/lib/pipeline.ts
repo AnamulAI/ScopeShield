@@ -1,10 +1,11 @@
 // Orchestration: Extract per CLIENT message -> Decide per request -> Route. Runs in the browser (or Node for evals).
 import type { ClockedClient } from "./clocked";
 import { ClockedError, type ErrorKind } from "./clocked";
-import type { ClockedUsage, DecideNoul, DecideResponse, ExtractResponse, FillResponse } from "./clocked-types";
+import type { ClockedUsage, DecideNoul, DecideResponse, ExtractResponse, FillResponse, VerifyResponse } from "./clocked-types";
 import { inventedAmounts } from "./checks";
 import { effortLabel } from "./health";
-import { buildDecideRequest, buildExtractRequest, buildFillRequest, buildPriceRequest, buildSupportRequest } from "./prompts";
+import { buildDecideRequest, buildExtractRequest, buildFillRequest, buildPriceRequest, buildSupportRequest, buildVerifyRequest } from "./prompts";
+import { toVerifiedClaims, type VerifyState } from "./verify";
 import { route, THRESHOLDS, type Decision, type RouteResult } from "./routing";
 import { cpLength, parseThread, sliceCp, toThreadOffsets, type Message } from "./thread";
 
@@ -50,7 +51,7 @@ export interface Support {
 
 export interface AgreedPrice { status: Status; value?: string | null; evidence?: { start: number; end: number } | null }
 
-export interface ChangeOrderState { status: Status; data?: ChangeOrder; error?: string; errorKind?: ErrorKind; /** one Regenerate attempt only */ regenerated: boolean }
+export interface ChangeOrderState { status: Status; data?: ChangeOrder; /** Verify (grounding) result for the generated message */ verify?: VerifyState; error?: string; errorKind?: ErrorKind; /** one Regenerate attempt only */ regenerated: boolean }
 
 export interface MessageState { messageIndex: number; status: Status; error?: string; errorKind?: ErrorKind; requestCount?: number }
 
@@ -59,11 +60,11 @@ export interface Analysis {
   messageStates: MessageState[];
   items: RequestItem[];
   /** extract = reading messages + agreement/withdrawal sentence lookups; price = agreed-price lookups (Extract); */
-  usage: Record<"extract" | "decide" | "fill" | "price", { calls: number; credits: number }>;
+  usage: Record<"extract" | "decide" | "fill" | "price" | "verify", { calls: number; credits: number }>;
 }
 
-export const emptyUsage = (): Analysis["usage"] => ({ extract: { calls: 0, credits: 0 }, decide: { calls: 0, credits: 0 }, fill: { calls: 0, credits: 0 }, price: { calls: 0, credits: 0 } });
-export const totalCredits = (u: Analysis["usage"]) => u.extract.credits + u.decide.credits + u.fill.credits + (u.price?.credits ?? 0);
+export const emptyUsage = (): Analysis["usage"] => ({ extract: { calls: 0, credits: 0 }, decide: { calls: 0, credits: 0 }, fill: { calls: 0, credits: 0 }, price: { calls: 0, credits: 0 }, verify: { calls: 0, credits: 0 } });
+export const totalCredits = (u: Analysis["usage"]) => u.extract.credits + u.decide.credits + u.fill.credits + (u.price?.credits ?? 0) + (u.verify?.credits ?? 0);
 
 const addUsage = (a: Analysis, ep: keyof Analysis["usage"], u: ClockedUsage | null) => {
   a.usage[ep] ??= { calls: 0, credits: 0 };
@@ -265,6 +266,24 @@ export async function fillChangeOrder(client: ClockedClient, inputs: Inputs, req
   };
 }
 
+/** Verify: checks the generated message claim by claim against the contract and the thread. Never fails the change order. */
+export async function runVerify(a: Analysis, item: RequestItem, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  const st = item.changeOrder;
+  const message = st?.data?.message;
+  if (!st || !message) return;
+  st.verify = { status: "running" };
+  emit();
+  try {
+    const { data, usage } = await client.call<VerifyResponse>("grounding", buildVerifyRequest(inputs.contract, inputs.thread, message));
+    addUsage(a, "verify", usage);
+    if (!Array.isArray(data.claims)) throw shapeError("grounding");
+    st.verify = { status: "done", claims: toVerifiedClaims(data.claims, { contract: inputs.contract, thread: inputs.thread }, sliceCp) };
+  } catch {
+    st.verify = { status: "failed" };
+  }
+  emit();
+}
+
 /** Runs Fill for one item (on demand). `regenerate` is the single allowed retry after an invented-amount block. */
 export async function runFill(a: Analysis, item: RequestItem, inputs: Inputs, client: ClockedClient, emit: () => void, regenerate = false) {
   const prev = item.changeOrder;
@@ -276,6 +295,9 @@ export async function runFill(a: Analysis, item: RequestItem, inputs: Inputs, cl
     const data = await fillChangeOrder(client, inputs, item.text, regenerate, v ? { effortScore: v.effort, agreed: v.paid >= THRESHOLDS.paidYes } : {});
     addUsage(a, "fill", data.usage);
     item.changeOrder = { status: "done", data, regenerated: item.changeOrder.regenerated };
+    emit();
+    await runVerify(a, item, inputs, client, emit);
+    return;
   } catch (e) {
     item.changeOrder = { status: "failed", error: (e as Error).message, errorKind: e instanceof ClockedError ? e.kind : undefined, regenerated: item.changeOrder.regenerated };
   }

@@ -24,7 +24,7 @@ export interface ClientOptions {
 }
 
 export interface CallResult<T> { data: T; usage: ClockedUsage | null; attempts: number }
-export type Endpoint = "decide" | "extract" | "fill";
+export type Endpoint = "decide" | "extract" | "fill" | "grounding";
 
 const RETRYABLE: ReadonlySet<ErrorKind> = new Set(["conflict", "rate_limit", "server", "timeout", "network"]);
 

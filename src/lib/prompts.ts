@@ -141,3 +141,19 @@ export function buildSupportRequest(thread: string, request: string, kind: "agre
       : `The client's own sentence where they cancel, withdraw or drop "${request}". Null if the client never did.`;
   return { text: thread, fields: { support: { description } } };
 }
+
+export const VERIFY_INSTRUCTIONS =
+  "Evaluate only the supplied documents: the agreed contract and the client thread. Missing evidence is not proof that a statement is false. Offers, requests and promises made by the freelancer (for example, that a price will be quoted separately) are not factual claims about the documents.";
+
+/** Verify the generated message claim by claim against two named sources: the contract and the thread. */
+export function buildVerifyRequest(contract: string, thread: string, message: string) {
+  return {
+    documents: [
+      { id: "contract", text: contract },
+      { id: "thread", text: thread },
+    ],
+    answer: message,
+    evidence: "all",
+    instructions: VERIFY_INSTRUCTIONS,
+  };
+}

@@ -40,3 +40,18 @@ export interface FillResponse { model: string; fields: Record<string, FillField>
 
 /** Response headers worth surfacing (all strings). */
 export interface ClockedUsage { credits: number; costUsd: number; modelMs: number }
+
+/** POST /clocked/grounding (Verify), verified against a real call on 7 Nov 2026. Offsets are local to the named document (code points). */
+export interface VerifyEvidence { document: string; quote: string; start: number; end: number; confidence: number }
+export interface VerifyClaim {
+  claim: string;
+  /** "claim" | "offer_or_question" | "meta" | ... */
+  kind: string;
+  verdict: "supported" | "contradicted" | "not_stated" | "not_a_claim" | string;
+  supported: number;
+  contradicted: number;
+  not_stated: number;
+  source: string | null;
+  evidence?: VerifyEvidence;
+}
+export interface VerifyResponse { model: string; grounded: number; ungrounded: number; verdict: string; threshold: number; claims: VerifyClaim[] }
