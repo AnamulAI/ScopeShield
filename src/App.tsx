@@ -100,7 +100,7 @@ export default function App() {
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
   const tab = (m: Mode, label: string) => (
-    <button role="tab" aria-selected={mode === m} onClick={() => switchMode(m)}
+    <button aria-pressed={mode === m} onClick={() => switchMode(m)}
       className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${mode === m ? "bg-navy text-white" : "text-navy hover:bg-navy/10"}`}>{label}</button>
   );
 
@@ -114,7 +114,7 @@ export default function App() {
             <p className="mt-1 text-sm text-muted">Catch scope creep before it becomes unpaid work.</p>
           </div>
         </div>
-        <div role="tablist" aria-label="Mode" className="flex gap-1 rounded-full border border-line bg-card p-1">
+        <div role="group" aria-label="Mode" className="flex gap-1 rounded-full border border-line bg-card p-1">
           {tab("demo", "Demo")}{tab("live", "Run live")}
         </div>
       </header>
@@ -146,6 +146,12 @@ export default function App() {
           </section>
         ) : (
           <InputPanel value={inputs} onChange={setInputs} onAnalyze={run} busy={running} />
+        )}
+
+        {mode === "live" && !analysis && (
+          <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-muted">
+            Results appear here: requests grouped by queue, with the client’s exact sentence highlighted in the thread. Not ready to spend credits? Try the <button onClick={() => switchMode("demo")} className="font-medium text-navy underline underline-offset-4">recorded demo</button>.
+          </p>
         )}
 
         {analysis && (

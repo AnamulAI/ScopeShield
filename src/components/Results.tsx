@@ -45,7 +45,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
     timer.current = window.setTimeout(() => setActiveId(null), 2500);
     const showThread = from === "card";
     if (window.matchMedia("(max-width: 1023px)").matches) setTab(showThread ? "thread" : "findings");
-    requestAnimationFrame(() => document.getElementById(showThread ? `ev-${id}` : `card-${id.split(":")[0]}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    requestAnimationFrame(() => document.getElementById(showThread ? `ev-${id}` : `card-${id.split(":")[0]}`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" }));
   };
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
@@ -88,9 +88,9 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
 
       <ScopeHealth items={analysis.items} />
 
-      <div className="flex gap-1 lg:hidden" role="tablist">
+      <div className="flex gap-1 lg:hidden" role="group" aria-label="Show findings or thread">
         {(["findings", "thread"] as const).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
+          <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${tab === t ? "bg-navy text-white" : "border border-line bg-card"}`}>
             {t === "findings" ? "Findings" : "Thread"}
           </button>
