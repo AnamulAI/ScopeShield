@@ -123,7 +123,7 @@ for (const width of [1280, 375]) {
 
   // ===== v2: replay, filters, collapsed groups, tabs, header/footer =====
   const hiddenCount = "document.querySelectorAll('li[data-hidden=\"true\"]').length";
-  const msgCount = "document.querySelectorAll('ol[aria-label^=\"Thread\"] > li').length";
+  const msgCount = "document.querySelectorAll('#chat-window ol > li').length";
   const apiCalls = "performance.getEntriesByType('resource').filter((e) => new URL(e.name).pathname.startsWith('/api/')).length";
   const clickText = (t, scope = "document") => ev(`[...${scope}.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith(${JSON.stringify(t)})).click()`);
   const showThread = async () => {
@@ -141,14 +141,15 @@ for (const width of [1280, 375]) {
   console.log(`replay autoplay: ${mid} of ${total} messages still hidden after 1.4 s`);
   ok(mid > 0 && mid < total, `autoplay should be part-way (hidden=${mid})`);
   ok((await ev(msgCount)) === total, "all messages stay in the DOM while hidden");
-  ok((await ev("document.querySelector('[data-testid=replay-live]').textContent.length")) > 0, "aria-live region got an announcement");
-  ok((await ev("document.querySelector('li[data-hidden=\"true\"]').hasAttribute('inert')")) === true, "hidden messages are inert");
+  let announced = 0; for (let i = 0; i < 40 && !announced; i++) { announced = await ev("document.querySelector('[data-testid=replay-live]').textContent.length"); if (!announced) await sleep(250); }
+  ok(announced > 0, "aria-live region announces a client message (with its verdict)");
+  ok((await ev("document.querySelector('li[data-hidden=\"true\"] .replay-item').hasAttribute('inert')")) === true, "hidden messages are inert");
   await clickText("Pause"); const p1 = await ev(hiddenCount); await sleep(1500); const p2 = await ev(hiddenCount);
   ok(p1 === p2, `Pause holds still (${p1} -> ${p2})`);
   await clickText("Play"); await sleep(1800);
   ok((await ev(hiddenCount)) < p2, "Play resumes");
   await clickText("Skip to end");
-  ok((await ev(hiddenCount)) === 0 && (await ev("document.querySelectorAll('li[inert]').length")) === 0, "Skip to end shows the whole thread");
+  ok((await ev(hiddenCount)) === 0 && (await ev("document.querySelectorAll('.replay-item[inert]').length")) === 0, "Skip to end shows the whole thread");
   await clickText("Restart"); await sleep(700);
   ok((await ev(hiddenCount)) > 0, "Restart hides the thread again and replays");
   // clicking a card finishes the replay and highlights its message
@@ -190,6 +191,68 @@ for (const width of [1280, 375]) {
     await clickText("Findings"); ok((await vis("aside[aria-label=Thread]")) === false, "Findings tab hides the thread");
     await clickText("Thread"); ok((await vis("aside[aria-label=Thread]")) === true, "Thread tab shows the thread");
     await clickText("Findings"); ok((await ev("document.querySelectorAll('article').length")) === articles, "all cards still in the DOM after tab switches");
+  }
+
+
+  // ===== chat window: structure, grouping, alignment, typing indicator, click-to-scroll =====
+  await load(width, "#sample=bakery");
+  if (width < 500) await clickText("Thread");
+  ok((await ev("!!document.querySelector('#chat-window [role=log][aria-live=polite]')")) === true, "chat body is role=log with a polite live region");
+  ok((await ev("document.querySelectorAll('#chat-window input, #chat-window textarea').length")) === 0, "no fake text input in the chat window");
+  ok((await ev("!!document.querySelector('#chat-window footer [aria-label=\"Replay controls\"]')")) === true, "replay controls live in the footer bar");
+  ok((await ev("document.querySelector('#chat-window header .t-eyebrow').textContent")) === "Recorded thread", "header badge says Recorded thread in Demo mode");
+  ok((await ev("document.querySelector('#chat-window header h3').textContent")) === "Rafi, Nila", "participant names come from the thread");
+  // grouping: a speaker's name appears once per run of consecutive messages
+  const groups = await ev(`(() => { const lis = [...document.querySelectorAll('#chat-window ol > li')]; let bad = 0; let prevName = null; let prevSide = null;
+    for (const li of lis) { const nameEl = li.querySelector('span.text-xs.font-semibold'); const first = li.hasAttribute('data-first');
+      if (first !== !!nameEl) bad++; // name label iff first in group
+      const name = nameEl ? nameEl.textContent.replace(' · client','') : prevName; const side = li.getAttribute('data-side');
+      if (first && prevName === name && side === prevSide) bad++; // two adjacent groups by the same speaker
+      if (!first && side !== prevSide) bad++; // a group never changes side
+      prevName = name; prevSide = side; }
+    return { bad, groups: lis.filter((l) => l.hasAttribute('data-first')).length, lis: lis.length }; })()`);
+  console.log(`chat grouping: ${groups.groups} groups for ${groups.lis} messages`);
+  ok(groups.bad === 0 && groups.groups < groups.lis, `grouping rules ${JSON.stringify(groups)}`);
+  // alignment and width: client left, others right, bubbles at most ~78% of the chat width
+  const geo = await ev(`(() => { const body = document.querySelector('#chat-window [role=log]').getBoundingClientRect(); const out = { leftOk: true, rightOk: true, maxFrac: 0 };
+    for (const li of document.querySelectorAll('#chat-window ol > li')) { const b = li.querySelector('[data-bubble]').getBoundingClientRect(); const side = li.getAttribute('data-side');
+      const mid = (b.left + b.right) / 2; const bodyMid = (body.left + body.right) / 2;
+      if (side === 'left' && !(b.left < bodyMid && mid < bodyMid + 40)) out.leftOk = false; if (side === 'right' && !(b.right > bodyMid && mid > bodyMid - 40)) out.rightOk = false;
+      out.maxFrac = Math.max(out.maxFrac, b.width / body.width); }
+    return out; })()`);
+  ok(geo.leftOk && geo.rightOk, `client bubbles left, others right ${JSON.stringify(geo)}`);
+  ok(geo.maxFrac <= 0.86, `bubble max width fraction ${geo.maxFrac.toFixed(2)}`);
+  ok((await ev("[...document.querySelectorAll('#chat-window [data-bubble]')].every((b) => getComputedStyle(b).fontFamily.includes('Figtree'))")) === true, "bubbles use the sans font");
+  // typing indicator: shown before bubbles during replay, with normal motion
+  await showThread(); await clickText("Restart");
+  let sawTyping = false; for (let i = 0; i < 14 && !sawTyping; i++) { await sleep(120); sawTyping = (await ev("document.querySelectorAll('#chat-window .typing').length")) > 0; }
+  ok(sawTyping, "typing indicator shows before a bubble during replay");
+  ok((await ev("document.querySelectorAll('#chat-window .typing').length")) <= 1, "only one typing indicator at a time");
+  // auto-scroll moves the chat body, never the page
+  const y0 = await ev("window.scrollY"); let scrolled = 0;
+  for (let i = 0; i < 70 && !scrolled; i++) { await sleep(250); scrolled = await ev("document.querySelector('#chat-window [role=log]').scrollTop"); }
+  ok(scrolled > 0, "chat auto-scrolls to follow the newest bubble");
+  ok(Math.abs((await ev("window.scrollY")) - y0) < 2, "auto-scroll never moves the page");
+  await clickText("Skip to end");
+  ok((await ev("document.querySelectorAll('#chat-window .typing').length")) === 0, "no typing indicator after Skip");
+  // click a card: the chat body scrolls to its bubble and pulses it once
+  await ev("document.querySelector('#chat-window [role=log]').scrollTo({ top: 0 })");
+  await ev("[...document.querySelectorAll('article p.font-display')].pop().click()"); await sleep(700);
+  const inView = await ev(`(() => { const body = document.querySelector('#chat-window [role=log]').getBoundingClientRect(); const m = document.querySelector('mark.sweep'); if (!m) return false; const r = m.getBoundingClientRect(); return r.top >= body.top - 2 && r.bottom <= body.bottom + 2; })()`);
+  ok(inView, "clicking a card scrolls the chat so the highlighted request is visible");
+  ok((await ev("document.querySelectorAll('.bubble-pulse').length")) === 1, "its bubble pulses once");
+  await sleep(2800); ok((await ev("document.querySelectorAll('.bubble-pulse').length")) === 0, "the pulse ends");
+  // reduced motion: no typing indicator even when replay is started by hand
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await load(width, "#sample=bakery"); await showThread(); await clickText("Replay"); let typed = false;
+  for (let i = 0; i < 10; i++) { await sleep(150); if ((await ev("document.querySelectorAll('#chat-window .typing').length")) > 0) typed = true; }
+  ok(!typed, "reduced motion: no typing indicator");
+  await clickText("Skip to end"); await send("Emulation.setEmulatedMedia", { features: [] });
+  if (width < 500) {
+    await load(width, "#sample=bakery"); await clickText("Thread");
+    const h = await ev("document.getElementById('chat-window').getBoundingClientRect().height");
+    ok(h >= 440 && h <= (await ev("innerHeight")), `375px: chat window fits the screen (${Math.round(h)}px)`);
+    ok((await ev("document.documentElement.scrollWidth")) <= width, `375px: no horizontal scroll with the chat open`);
   }
 
   // header and footer

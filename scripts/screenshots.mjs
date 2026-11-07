@@ -8,8 +8,24 @@ import { join } from "node:path";
 const CHROME = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const BASE = process.env.SHOT_BASE_URL ?? "http://localhost:8788";
 const PORT = 9333;
+// Clip of one element (page coordinates) after optional setup.
+const elementShot = async (name, width, hash, opts = {}) => {
+  await send("Emulation.setDeviceMetricsOverride", { width, height: width < 500 ? 812 : 900, deviceScaleFactor: 1, mobile: width < 500 });
+  await send("Emulation.setEmulatedMedia", { features: opts.reduced === false ? [] : [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await send("Page.navigate", { url: "about:blank" }); await sleep(300);
+  await send("Page.navigate", { url: `${BASE}/${hash}` }); await sleep(3500);
+  if (width < 500) await send("Runtime.evaluate", { expression: "[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Thread').click()" });
+  await send("Runtime.evaluate", { expression: "document.getElementById('chat-window').scrollIntoView({ block: 'start' })" });
+  await sleep(opts.wait ?? 900);
+  const r = (await send("Runtime.evaluate", { expression: "(() => { const b = document.getElementById('chat-window').getBoundingClientRect(); return { x: b.x + scrollX, y: b.y + scrollY, w: b.width, h: b.height }; })()", returnByValue: true })).result.result.value;
+  const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: Math.max(0, r.x - 16), y: Math.max(0, r.y - 16), width: Math.min(width, r.w + 32), height: r.h + 32, scale: 1 } });
+  writeFileSync(`docs/screenshots/${name}.png`, Buffer.from(shot.result.data, "base64"));
+  console.log(name, Math.round(r.w), Math.round(r.h));
+};
+
 const SHOTS = [
   ["desktop-bakery", 1280, "/#sample=bakery"],
+  ["desktop-top", 1280, "/#sample=bakery", { hero: true, tall: 1300 }],
   ["desktop-brand-open", 1280, "/#sample=brand-studio&open=1"],
   ["desktop-fitness", 1280, "/#sample=fitness-app"],
   ["tablet-bakery", 768, "/#sample=bakery"],
@@ -53,11 +69,14 @@ for (const [name, width, path, opts] of SHOTS) {
   await send("Page.navigate", { url: `${BASE}${path}` });
   await sleep(4000);
   const h = (await send("Runtime.evaluate", { expression: "document.documentElement.scrollHeight", returnByValue: true })).result.result.value;
-  const height = opts?.hero ? Math.min(h, 1700) : Math.min(h, 7000);
+  const height = opts?.tall ? Math.min(h, opts.tall) : opts?.hero ? Math.min(h, 1700) : Math.min(h, 7000);
   const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width, height, scale: 1 } });
   writeFileSync(`docs/screenshots/${name}.png`, Buffer.from(shot.result.data, "base64"));
   console.log(name, width, height);
 }
+await elementShot("desktop-thread-chat", 1280, "#sample=bakery");
+await elementShot("desktop-thread-chat-replay", 1280, "#sample=brand-studio", { reduced: false, wait: 5200 });
+await elementShot("mobile-thread-tab", 375, "#sample=bakery");
 await send("Emulation.setEmulatedMedia", { features: [] });
 await heroClip("hero-mid-animation", 1280, { freezeAt: 1500 });
 await heroClip("hero-reduced-motion", 1280, { reduced: true });

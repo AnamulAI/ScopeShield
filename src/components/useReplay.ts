@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { announcement, replayBudget, replayDelay, type ReplayMsg } from "../lib/replay";
-import { onFirstVisible } from "./motion";
+import { announcement, replayBudget, replayDelay, TYPING_MS, type ReplayMsg } from "../lib/replay";
+import { onFirstVisible, prefersReducedMotion } from "./motion";
 
 /**
  * Replay of a RECORDED thread: messages are revealed one by one. No network, no "analysing" states.
@@ -13,6 +13,7 @@ export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (ind
   const [revealed, setRevealed] = useState(total);
   const [playing, setPlaying] = useState(false);
   const [live, setLive] = useState("");
+  const [typing, setTyping] = useState<number | null>(null); // index of the bubble about to appear
   const panel = useRef<HTMLElement | null>(null);
   const timer = useRef(0);
   const dog = useRef(0);
@@ -22,14 +23,21 @@ export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (ind
   const clear = () => { window.clearTimeout(timer.current); window.clearTimeout(dog.current); };
   const set = (n: number) => { shown.current = n; setRevealed(n); };
 
-  const finish = useCallback(() => { clear(); set(total); setPlaying(false); }, [total]);
+  const finish = useCallback(() => { clear(); set(total); setTyping(null); setPlaying(false); }, [total]);
 
+  // Show a bubble: typing dots first (replay only, not with reduced motion), then the bubble, then wait before the next.
   const tick = useCallback((next: number) => {
     if (next >= total) { finish(); return; }
-    set(next + 1);
-    setLive(announcement(msgs[next], verdictsFor(next)));
-    if (next + 1 >= total) { clear(); setPlaying(false); return; }
-    timer.current = window.setTimeout(() => tick(next + 1), replayDelay(msgs[next]));
+    const reveal = () => {
+      setTyping(null);
+      set(next + 1);
+      setLive(announcement(msgs[next], verdictsFor(next)));
+      if (next + 1 >= total) { clear(); setPlaying(false); return; }
+      timer.current = window.setTimeout(() => tick(next + 1), replayDelay(msgs[next]));
+    };
+    if (prefersReducedMotion()) { reveal(); return; }
+    setTyping(next);
+    timer.current = window.setTimeout(reveal, TYPING_MS);
   }, [msgs, total, finish, verdictsFor]);
 
   const run = useCallback((from: number) => {
@@ -40,7 +48,7 @@ export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (ind
   }, [msgs, finish, tick]);
 
   const play = useCallback(() => { if (shown.current >= total) { flushSync(() => set(0)); run(0); } else run(shown.current); }, [total, run]);
-  const pause = useCallback(() => { clear(); setPlaying(false); }, []);
+  const pause = useCallback(() => { clear(); setTyping(null); setPlaying(false); }, []);
   const restart = useCallback(() => { flushSync(() => set(0)); run(0); }, [run]);
 
   // Autoplay once, when the thread panel is first visible (and the user has not asked for reduced motion).
@@ -56,5 +64,5 @@ export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (ind
 
   useEffect(() => clear, []);
 
-  return { panel, revealed, playing, live, total, play, pause, restart, finish };
+  return { panel, revealed, playing, live, typing, total, play, pause, restart, finish };
 }

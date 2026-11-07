@@ -5,11 +5,11 @@ import { RequestCard } from "./RequestCard";
 import { describeError, worstKind } from "../lib/errors";
 import { QUEUE_ORDER, QUEUES } from "./queues";
 import { ErrorBanner } from "./ErrorBanner";
-import { ChevronIcon, PauseIcon, PlayIcon, QueueIcon, RestartIcon, SkipEndIcon } from "./icons";
+import { ChevronIcon, QueueIcon } from "./icons";
 import { isExpanded, visibleQueues, type Filter } from "../lib/replay";
 import { useReplay } from "./useReplay";
 import { ScopeHealth } from "./ScopeHealth";
-import { ThreadView } from "./ThreadView";
+import { ChatWindow, type ChatHandle } from "./ChatWindow";
 
 interface Props {
   analysis: Analysis; running: boolean;
@@ -28,6 +28,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
+  const chat = useRef<ChatHandle>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<Queue>>(new Set());
   const toggleExpanded = (q: Queue, v: boolean) => setExpanded((prev) => { const n = new Set(prev); if (v) n.add(q); else n.delete(q); return n; });
@@ -65,9 +66,16 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
     setActiveId(id);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setActiveId(null), 2500);
-    const showThread = from === "card";
-    if (window.matchMedia("(max-width: 1023px)").matches) setTab(showThread ? "thread" : "findings");
-    requestAnimationFrame(() => document.getElementById(showThread ? `ev-${id}` : `card-${id.split(":")[0]}`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" }));
+    const toThread = from === "card";
+    const mobile = window.matchMedia("(max-width: 1023px)").matches;
+    const behavior: ScrollBehavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    if (mobile) setTab(toThread ? "thread" : "findings");
+    requestAnimationFrame(() => {
+      if (toThread) {
+        if (mobile) document.getElementById("chat-window")?.scrollIntoView({ behavior, block: "start" }); // user-initiated: bring the chat into view
+        chat.current?.scrollToEvidence(id); // scrolls the chat body only
+      } else document.getElementById(`card-${id.split(":")[0]}`)?.scrollIntoView({ behavior, block: "center" });
+    });
   };
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
@@ -182,33 +190,9 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
           })}
         </div>
 
-        <aside ref={replay.panel} aria-label="Thread" className={`${tab === "thread" ? "" : "hidden"} min-w-0 lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1`}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <h3 className="t-h3">Thread</h3>
-            {recorded && (
-              <div role="group" aria-label="Replay controls" className="flex flex-wrap gap-1.5">
-                <button onClick={replay.playing ? replay.pause : replay.play} className="press inline-flex items-center gap-1.5 rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">
-                  {replay.playing ? <PauseIcon width={14} height={14} /> : <PlayIcon width={14} height={14} />}{replay.playing ? "Pause" : replay.revealed >= replay.total ? "Replay" : "Play"}
-                </button>
-                <button onClick={replay.finish} disabled={replay.revealed >= replay.total} className="press inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy/40 disabled:opacity-50">
-                  <SkipEndIcon width={14} height={14} />Skip to end
-                </button>
-                <button onClick={replay.restart} className="press inline-flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy/40">
-                  <RestartIcon width={14} height={14} />Restart
-                </button>
-              </div>
-            )}
-          </div>
-          {recorded && (
-            <>
-              <p className="mb-3 text-xs leading-5 text-muted">Replaying a recorded thread. Verdicts come from the recorded Clocked run.</p>
-              <div className="mb-3 h-1 overflow-hidden rounded-full bg-paper-deep" aria-hidden="true">
-                <div className="h-full origin-left bg-navy/70 transition-transform duration-300" style={{ transform: `scaleX(${replay.total ? replay.revealed / replay.total : 1})` }} />
-              </div>
-              <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="replay-live">{replay.live}</p>
-            </>
-          )}
-          <ThreadView analysis={analysis} openIds={openCO} activeId={activeId} onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} revealed={recorded ? replay.revealed : undefined} />
+        <aside ref={replay.panel} aria-label="Thread" className={`${tab === "thread" ? "" : "hidden"} min-w-0 lg:sticky lg:top-20 lg:block`}>
+          <ChatWindow ref={chat} analysis={analysis} recorded={!!recorded} replay={replay} openIds={openCO} activeId={activeId}
+            onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} />
         </aside>
       </div>
 

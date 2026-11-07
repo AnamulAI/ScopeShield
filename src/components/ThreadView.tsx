@@ -1,8 +1,9 @@
 import { useMemo } from "react";
+import { avatarColor, initials, participants, placeMessages } from "../lib/chat";
 import { describeError } from "../lib/errors";
 import type { Analysis } from "../lib/pipeline";
-import { segmentMessage } from "../lib/thread";
 import { effectiveQueue } from "../lib/routing";
+import { segmentMessage } from "../lib/thread";
 import { QueueIcon } from "./icons";
 import { QUEUES } from "./queues";
 
@@ -10,9 +11,12 @@ interface Props {
   analysis: Analysis; openIds: Set<string>; activeId: string | null; onPick: (id: string) => void; onRetryMessage: (messageIndex: number) => void;
   /** Replay: how many messages are shown. Hidden ones stay in the DOM (layout reserved, no shift) but are inert and invisible. */
   revealed?: number;
+  /** Replay only: index of the bubble that is about to appear (three-dot typing indicator). */
+  typingIndex?: number | null;
 }
 
-export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage, revealed = Infinity }: Props) {
+/** The thread as a generic chat conversation: client on the left, everyone else on the right, evidence kept inside the bubbles. */
+export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage, revealed = Infinity, typingIndex = null }: Props) {
   // Main span = the request; secondary spans = agreement/withdrawal sentence and the quoted price.
   const spans = useMemo(() => {
     const out: { id: string; start: number; end: number }[] = [];
@@ -28,59 +32,81 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
     return out.sort((a, b) => (a.id.includes(":") ? 1 : 0) - (b.id.includes(":") ? 1 : 0)); // requests win overlaps
   }, [analysis.items, openIds]);
   const itemById = useMemo(() => new Map(analysis.items.map((i) => [i.id, i])), [analysis.items]);
+  const people = useMemo(() => participants(analysis.messages), [analysis.messages]);
+  const placed = useMemo(() => placeMessages(analysis.messages), [analysis.messages]);
   const stateOf = (idx: number) => analysis.messageStates.find((s) => s.messageIndex === idx);
 
   return (
-    <ol className="space-y-3" aria-label="Thread with evidence highlighted">
-      {analysis.messages.map((m) => {
+    <ol className="flex flex-col px-3 pb-6 pt-4 sm:px-4" aria-label="Messages, with the client's requests highlighted">
+      {analysis.messages.map((m, n) => {
         const st = stateOf(m.index);
+        const pl = placed[n];
+        const right = pl.side === "right";
         const hidden = m.index >= revealed;
+        const typing = typingIndex === m.index;
         const mine = analysis.items.filter((i) => i.messageIndex === m.index);
+        const segs = segmentMessage(m, spans);
+        const pulse = activeId !== null && segs.some((sg) => sg.id === activeId);
+        const color = avatarColor(people, m.speaker);
         return (
-          <li key={m.index} id={`msg-${m.index}`} data-hidden={hidden ? "true" : undefined} aria-hidden={hidden ? true : undefined} inert={hidden ? true : undefined}
-            className={`replay-item rounded-2xl px-4 py-3 text-[0.9375rem] leading-6 ${hidden ? "is-hidden" : ""} ${m.isClient ? "surface" : "ml-4 border-l-2 border-line pl-4 text-muted sm:ml-8"}`}>
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <span className={`t-eyebrow ${m.isClient ? "text-navy" : "text-muted"}`}>{m.speaker}{m.isClient ? " · client" : ""}</span>
-              {st?.status === "running" && <span className="flex items-center gap-1 text-xs text-muted" role="status"><span className="spinner" /> Reading</span>}
-              {st?.status === "done" && st.requestCount === 0 && <span className="text-xs text-muted">No actionable request</span>}
-              {st?.status === "failed" && (
-                <span className="flex items-center gap-2 text-xs text-change" role="alert">
-                  <span title={describeError(st.errorKind, st.error).hint}>{describeError(st.errorKind, st.error).title}</span>
-                  <button onClick={() => onRetryMessage(m.index)} className="rounded bg-navy px-2 py-0.5 text-white">Retry</button>
-                </span>
-              )}
-            </div>
-            <p className="whitespace-pre-wrap break-words">
-              {segmentMessage(m, spans).map((seg, k) => {
-                if (!seg.id) return <span key={k}>{seg.text}</span>;
-                const [baseId, sub] = seg.id.split(":");
-                const item = itemById.get(baseId)!;
-                const eq = effectiveQueue(item.route, item.decision);
-                const q = eq !== "pending" ? QUEUES[eq] : null;
-                const withdrawn = eq === "withdrawn";
-                const secondary = sub === "support" ? (item.support?.kind === "agreement" ? "Agreement sentence" : "Withdrawal sentence") : sub === "price" ? "Price quoted" : sub === "agreedprice" ? "Agreed price" : sub?.startsWith("v") ? `Verify evidence (${item.changeOrder?.verify?.claims?.[Number(sub.slice(1))]?.verdict?.replace("_", " ") ?? ""})` : null;
-                return (
-                  <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={secondary ?? (q ? q.label : "Checking")}
-                    className={`cursor-pointer rounded px-1 py-0.5 text-ink [box-decoration-break:clone] ${secondary ? "border-b-2 border-dashed border-ink bg-card font-medium ring-1 ring-ink/20" : `border-b-2 ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"}`} ${withdrawn && !secondary ? "line-through" : ""} ${activeId === seg.id ? "sweep outline outline-2 outline-navy" : ""}`}>
-                    {seg.text}
-                  </mark>
-                );
-              })}
-            </p>
-            {mine.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {mine.map((i) => {
-                  const eq = effectiveQueue(i.route, i.decision);
-                  if (eq === "pending") return null;
-                  return (
-                    <button key={i.id} onClick={() => onPick(i.id)} title="Go to this request's card"
-                      className={`chip-in press inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${QUEUES[eq].bg} ${QUEUES[eq].text}`}>
-                      <QueueIcon queue={eq} width={14} height={14} />{QUEUES[eq].label}
-                    </button>
-                  );
-                })}
+          <li key={m.index} id={`msg-${m.index}`} data-side={pl.side} data-first={pl.firstInGroup ? "true" : undefined} data-hidden={hidden ? "true" : undefined}
+            className={`relative flex ${right ? "justify-end" : "justify-start"} ${pl.firstInGroup ? (n === 0 ? "" : "mt-5") : "mt-1.5"}`}>
+            {/* three-dot typing indicator (replay only): sits where the bubble is about to appear */}
+            {typing && (
+              <div aria-hidden="true" className={`typing absolute top-0 ${right ? "right-0 flex-row-reverse" : "left-0"} flex items-center gap-2`}>
+                <span className="h-8 w-8 shrink-0" />
+                <span className="flex items-center gap-1 rounded-2xl bg-white px-3 py-2.5 shadow-card"><i /><i /><i /></span>
               </div>
             )}
+            <div aria-hidden={hidden ? true : undefined} inert={hidden ? true : undefined}
+              className={`replay-item flex max-w-[84%] items-end gap-2 sm:max-w-[78%] ${right ? "flex-row-reverse" : ""} ${hidden ? "is-hidden" : ""}`}>
+              {pl.firstInGroup ? (
+                <span aria-hidden="true" title={m.speaker} className="mb-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: color }}>{initials(m.speaker)}</span>
+              ) : <span className="h-8 w-8 shrink-0" />}
+              <div className={`min-w-0 ${right ? "items-end text-right" : "items-start"} flex flex-col`}>
+                {pl.firstInGroup && <span className="mb-1 px-1 text-xs font-semibold text-[#3f4859]">{m.speaker}{m.isClient ? " · client" : ""}</span>}
+                <p data-bubble className={`bubble whitespace-pre-wrap break-words px-4 py-2.5 text-left font-sans text-[0.9375rem] leading-6 ${right ? "bubble-right" : "bubble-left"} ${pl.firstInGroup ? (right ? "tail-right" : "tail-left") : ""} ${pulse ? "bubble-pulse" : ""}`}>
+                  {segs.map((seg, k) => {
+                    if (!seg.id) return <span key={k}>{seg.text}</span>;
+                    const [baseId, sub] = seg.id.split(":");
+                    const item = itemById.get(baseId)!;
+                    const eq = effectiveQueue(item.route, item.decision);
+                    const q = eq !== "pending" ? QUEUES[eq] : null;
+                    const withdrawn = eq === "withdrawn";
+                    const secondary = sub === "support" ? (item.support?.kind === "agreement" ? "Agreement sentence" : "Withdrawal sentence") : sub === "price" ? "Price quoted" : sub === "agreedprice" ? "Agreed price" : sub?.startsWith("v") ? `Verify evidence (${item.changeOrder?.verify?.claims?.[Number(sub.slice(1))]?.verdict?.replace("_", " ") ?? ""})` : null;
+                    return (
+                      <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={secondary ?? (q ? q.label : "Checking")}
+                        className={`cursor-pointer rounded px-1 py-0.5 text-ink [box-decoration-break:clone] ${secondary ? "border-b-2 border-dashed border-ink bg-card font-medium ring-1 ring-ink/20" : `border-b-2 ${q ? `${q.bg} ${q.border}` : "bg-pending-bg border-line"}`} ${withdrawn && !secondary ? "line-through" : ""} ${activeId === seg.id ? "sweep outline outline-2 outline-navy" : ""}`}>
+                        {seg.text}
+                      </mark>
+                    );
+                  })}
+                </p>
+                {/* what the app found in this client message: verdict chips, or a quiet note */}
+                {m.isClient && (mine.length > 0 || st) && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 px-1">
+                    {mine.map((i) => {
+                      const eq = effectiveQueue(i.route, i.decision);
+                      if (eq === "pending") return null;
+                      return (
+                        <button key={i.id} onClick={() => onPick(i.id)} title="Go to this request's card"
+                          className={`chip-in press inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${QUEUES[eq].bg} ${QUEUES[eq].text}`}>
+                          <QueueIcon queue={eq} width={14} height={14} />{QUEUES[eq].label}
+                        </button>
+                      );
+                    })}
+                    {st?.status === "done" && st.requestCount === 0 && <span className="rounded-full bg-[#dde3ea] px-2.5 py-1 text-xs font-medium text-[#3f4859]">No actionable request</span>}
+                    {st?.status === "running" && <span className="flex items-center gap-1.5 rounded-full bg-[#dde3ea] px-2.5 py-1 text-xs text-[#3f4859]" role="status"><span className="spinner" /> Reading</span>}
+                    {st?.status === "failed" && (
+                      <span className="flex items-center gap-2 rounded-full bg-change-bg px-2.5 py-1 text-xs text-change" role="alert">
+                        <span title={describeError(st.errorKind, st.error).hint}>{describeError(st.errorKind, st.error).title}</span>
+                        <button onClick={() => onRetryMessage(m.index)} className="rounded bg-navy px-2 py-0.5 text-paper">Retry</button>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </li>
         );
       })}

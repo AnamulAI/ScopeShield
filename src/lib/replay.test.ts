@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { announcement, isExpanded, replayBudget, replayDelay, visibleQueues } from "./replay";
+import { announcement, isExpanded, replayBudget, replayDelay, TYPING_MS, visibleQueues } from "./replay";
 import type { Queue } from "./routing";
 
 const ORDER: Queue[] = ["needs_change_order", "ask_me", "agreed_extra", "in_scope", "withdrawn"];
@@ -9,13 +9,14 @@ const dev = { isClient: false, speaker: "Rafi", text: "That is outside the packa
 describe("replay timing", () => {
   it("is slower for client messages, capped, and never zero", () => {
     expect(replayDelay(client)).toBeGreaterThan(replayDelay({ ...dev, text: client.text }));
-    expect(replayDelay({ ...client, text: "x".repeat(500) })).toBe(1100);
-    expect(replayDelay({ ...dev, text: "x".repeat(500) })).toBe(750);
+    expect(replayDelay({ ...client, text: "x".repeat(500) })).toBe(800);
+    expect(replayDelay({ ...dev, text: "x".repeat(500) })).toBe(500);
+    expect(TYPING_MS).toBe(400);
     expect(replayDelay({ ...dev, text: "" })).toBeGreaterThan(0);
   });
-  it("has a watchdog budget longer than the sum of the delays", () => {
+  it("has a watchdog budget longer than the sum of the delays and typing pauses", () => {
     const msgs = [client, dev, client];
-    expect(replayBudget(msgs)).toBe(msgs.reduce((t, m) => t + replayDelay(m), 0) + 3000);
+    expect(replayBudget(msgs)).toBe(msgs.reduce((t, m) => t + replayDelay(m) + TYPING_MS, 0) + 3000);
   });
 });
 
