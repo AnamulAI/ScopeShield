@@ -15,3 +15,15 @@ describe("inventedAmounts", () => {
     expect(inventedAmounts("Price will be confirmed.", source)).toEqual([]);
   });
 });
+
+describe("inventedAmounts: other currencies and edge cases", () => {
+  it("covers other currency forms", () => {
+    expect(inventedAmounts("It costs ৳5,000", "No prices here")).toEqual(["৳5,000"]);
+    expect(inventedAmounts("It costs €120.50", "price was 120.50 EUR")).toEqual([]);
+    expect(inventedAmounts("Tk 300 only", "We said $150")).toEqual(["Tk 300"]);
+    expect(inventedAmounts("two hundred dollars", "x")).toEqual([]); // spelled-out numbers are not detected (documented limit)
+  });
+  it("does not flag plain numbers that are not money", () => {
+    expect(inventedAmounts("We will deliver 5 pages in 3 days", "x")).toEqual([]);
+  });
+});

@@ -68,14 +68,16 @@ export interface FillRequest {
 }
 
 /** Source = contract + FULL thread + final anchor line. The request text is injected into every field description. */
-export function buildFillRequest(contract: string, thread: string, request: string): FillRequest {
+export const STRICT_FILL_SUFFIX = " Do not write any currency amount unless that exact amount is written in the thread.";
+
+export function buildFillRequest(contract: string, thread: string, request: string, strict = false): FillRequest {
   const prefix = `AGREED CONTRACT / SCOPE:\n${contract}\n\nTHREAD:\n`;
   const r = `"${request}"`;
   return {
     threadOffset: cpLength(prefix),
     body: {
       text: `${prefix}${thread}\n\nREQUEST TO FILL: ${request}`,
-      instructions: FILL_INSTRUCTIONS,
+      instructions: strict ? FILL_INSTRUCTIONS + STRICT_FILL_SUFFIX : FILL_INSTRUCTIONS,
       fields: {
         category: { type: "choice", options: ["new_feature", "revision", "bug_fix", "other"] },
         unpaid_risk: {
@@ -103,4 +105,13 @@ export function buildFillRequest(contract: string, thread: string, request: stri
       },
     },
   };
+}
+
+/** Extract over the FULL thread to find the sentence that supports a verdict. Offsets are thread offsets directly. */
+export function buildSupportRequest(thread: string, request: string, kind: "agreement" | "withdrawal") {
+  const description =
+    kind === "agreement"
+      ? `The client's own sentence where they agree to pay extra for, or say to go ahead with, "${request}". Null if the client never did.`
+      : `The client's own sentence where they cancel, withdraw or drop "${request}". Null if the client never did.`;
+  return { text: thread, fields: { support: { description } } };
 }

@@ -1,10 +1,10 @@
 // Guards against invented numbers in generated text.
-const MONEY = /(?:[$€£]|USD\s?)\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:USD|dollars?)\b/gi;
-const norm = (s: string) => s.replace(/[\s,]/g, "").toLowerCase();
-const digitsOf = (s: string) => (s.match(/\d+(?:\.\d+)?/g) ?? [])[0]?.replace(/^0+(?=\d)/, "") ?? "";
+// Currency amounts: symbol/code before ($ € £ ৳ ₹ USD BDT INR Tk Rs) or word/code after (USD, dollars, taka, ...).
+const MONEY = /(?:[$€£৳₹]|\b(?:USD|EUR|GBP|BDT|INR|Tk|Rs)\.?)\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:USD|EUR|GBP|BDT|INR|dollars?|euros?|pounds?|taka|Tk|৳)(?![A-Za-z])/gi;
+const num = (s: string) => (s.replace(/,/g, "").match(/\d+(?:\.\d+)?/)?.[0] ?? "").replace(/^0+(?=\d)/, "").replace(/\.0+$/, "");
 
-/** Money amounts in `generated` that do not appear in `source` (compared by numeric value). */
+/** Money amounts in `generated` whose numeric value does not appear as an amount in `source` (currency symbol is not compared). */
 export function inventedAmounts(generated: string, source: string): string[] {
-  const inSource = new Set((source.match(MONEY) ?? []).map((m) => digitsOf(norm(m))));
-  return (generated.match(MONEY) ?? []).filter((m) => !inSource.has(digitsOf(norm(m))));
+  const inSource = new Set((source.match(MONEY) ?? []).map(num));
+  return (generated.match(MONEY) ?? []).filter((m) => !inSource.has(num(m)));
 }

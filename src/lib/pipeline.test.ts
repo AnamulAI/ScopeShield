@@ -95,3 +95,97 @@ describe("runDecide retry", () => {
     expect(item.route?.queue).toBeDefined();
   });
 });
+
+import { changeOrderText, copyBlocked, runFill, runSupport } from "./pipeline";
+import { createClockedClient } from "./clocked";
+
+const fillRes = (message: string, price: unknown = { value: null, confidence: 1 }) => ({
+  fields: { category: { value: "new_feature", confidence: 1 }, unpaid_risk: { value: "High", confidence: 1 }, price_mentioned: price, change_order_message: { value: message, confidence: 1, source: "generated" }, next_step: { value: "Wait for the client's answer.", confidence: 1, source: "generated" } },
+});
+const clientFor = (responses: unknown[], seen: any[] = []) =>
+  createClockedClient({
+    fetchImpl: (async (_u: any, init: any) => {
+      seen.push(JSON.parse(init.body));
+      return new Response(JSON.stringify(responses.shift()), { status: 200, headers: { "x-clocked-credits": "8" } });
+    }) as unknown as typeof fetch,
+  });
+const inputs = { contract: "Fixed price $800", thread: "Client: Please add a blog.\nDev: A blog is extra.", clientName: "Client" };
+const blank = (): { a: Analysis; item: RequestItem } => ({ a: { messages: [], messageStates: [], items: [], usage: emptyUsage() }, item: { id: "0-0", messageIndex: 0, text: "add a blog", evidence: null, status: "done" } });
+
+describe("runFill guard", () => {
+  it("blocks Copy on an invented amount, allows exactly ONE strict Regenerate, then stays blocked if still invented", async () => {
+    const seen: any[] = [];
+    const client = clientFor([fillRes("That will be $250."), fillRes("Still $300 for this."), fillRes("never used")], seen);
+    const { a, item } = blank();
+    await runFill(a, item, inputs, client, () => {});
+    expect(item.changeOrder!.data!.inventedMessage).toEqual(["$250"]);
+    expect(copyBlocked(item.changeOrder!.data!)).toBe(true);
+    await runFill(a, item, inputs, client, () => {}, true);
+    expect(seen[1].instructions).toContain("Do not write any currency amount");
+    expect(copyBlocked(item.changeOrder!.data!)).toBe(true);
+    expect(item.changeOrder!.regenerated).toBe(true);
+    await runFill(a, item, inputs, client, () => {}, true); // second Regenerate is refused
+    expect(seen).toHaveLength(2);
+    expect(a.usage.fill.credits).toBe(16);
+  });
+  it("allows Copy when amounts come from the thread or contract, and when none are present", async () => {
+    const client = clientFor([fillRes("As agreed, the base is $800; the price will be confirmed.")]);
+    const { a, item } = blank();
+    await runFill(a, item, inputs, client, () => {});
+    expect(copyBlocked(item.changeOrder!.data!)).toBe(false);
+  });
+  it("maps a quoted price back to the thread and verifies it", async () => {
+    const thread = "Client: Bengali please\nDev: It would be $150 extra.";
+    const client = clientFor([]);
+    const { buildFillRequest } = await import("./prompts");
+    const { threadOffset } = buildFillRequest(inputs.contract, thread, "x");
+    const start = Array.from(thread).join("").indexOf("$150");
+    const c2 = clientFor([fillRes("Msg", { value: "$150", start: threadOffset + start, end: threadOffset + start + 4, confidence: 1 })]);
+    const { a, item } = blank();
+    await runFill(a, item, { ...inputs, thread }, c2, () => {});
+    expect(item.changeOrder!.data!.priceMentioned).toBe("$150");
+    expect(item.changeOrder!.data!.priceEvidence).toEqual({ start, end: start + 4 });
+    void client;
+  });
+  it("shows a failed Fill with its error", async () => {
+    const bad = createClockedClient({ fetchImpl: (async () => new Response("{}", { status: 402 })) as unknown as typeof fetch });
+    const { a, item } = blank();
+    await runFill(a, item, inputs, bad, () => {});
+    expect(item.changeOrder).toMatchObject({ status: "failed", errorKind: "credits" });
+  });
+});
+
+describe("changeOrderText", () => {
+  it("labels generated parts and states when no price was quoted", () => {
+    const t = changeOrderText("add a blog", { category: "new_feature", unpaidRisk: "High", priceMentioned: null, priceEvidence: null, message: "Hi", nextStep: "Wait", inventedMessage: [], inventedNextStep: [], usage: null });
+    expect(t).toContain("Price: No price was quoted in this thread");
+    expect(t).toContain("Message to client (AI-generated draft):");
+    expect(t).toContain("Category: new feature");
+  });
+});
+
+describe("runSupport", () => {
+  const thread = "Client: Can you add Bengali?\nDev: $150 extra, proceed?\nClient: Sounds good 😀, go ahead!";
+  it("locates the agreement sentence by code points and rejects offsets that do not match", async () => {
+    const q = "Sounds good 😀, go ahead!";
+    const start = Array.from(thread).join("").indexOf(q) === -1 ? 0 : Array.from(thread.slice(0, thread.indexOf(q))).length;
+    const ok = clientFor([{ fields: { support: { value: q, start, end: start + Array.from(q).length, confidence: 1 } } }]);
+    const { a, item } = blank();
+    item.route = { queue: "agreed_extra", reason: "" };
+    await runSupport(a, item, { ...inputs, thread }, ok, () => {});
+    expect(item.support).toMatchObject({ kind: "agreement", status: "done", text: q });
+    expect(item.support!.evidence).toEqual({ start, end: start + Array.from(q).length });
+    const wrong = clientFor([{ fields: { support: { value: q, start: 0, end: 5, confidence: 1 } } }]);
+    const b = blank();
+    b.item.route = { queue: "withdrawn", reason: "" };
+    await runSupport(b.a, b.item, { ...inputs, thread }, wrong, () => {});
+    expect(b.item.support).toMatchObject({ kind: "withdrawal", status: "done", evidence: null });
+  });
+  it("reports null when the model finds no sentence", async () => {
+    const none = clientFor([{ fields: { support: { value: null, confidence: 1 } } }]);
+    const { a, item } = blank();
+    item.route = { queue: "agreed_extra", reason: "" };
+    await runSupport(a, item, inputs, none, () => {});
+    expect(item.support).toMatchObject({ status: "done", text: null, evidence: null });
+  });
+});
