@@ -13,7 +13,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "prepare": "git config core.hooksPath .githooks || true",
     "eval": "tsx scripts/eval.ts",
-    "sample-run": "tsx scripts/sample-run.ts"
+    "snapshot": "tsx scripts/snapshot.ts"
   },
   "dependencies": {
     "react": "^19.3.1",

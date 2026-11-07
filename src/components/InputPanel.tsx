@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { checkInputs, LIMITS } from "../lib/limits";
 import { cpLength } from "../lib/thread";
-import sample from "../../evals/sample-thread.json";
+import { SAMPLES } from "../lib/samples";
 
 export interface Inputs { contract: string; thread: string; clientName: string }
 interface Props { value: Inputs; onChange: (v: Inputs) => void; onAnalyze: () => void; busy: boolean }
@@ -16,10 +16,12 @@ export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (check.ok && !busy) onAnalyze(); }} className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => onChange({ contract: sample.contract, thread: sample.thread, clientName: sample.clientName })}
-          className="rounded-full border border-navy/30 bg-card px-4 py-1.5 text-sm font-medium text-navy hover:border-navy">
-          Load sample: bakery website
-        </button>
+        {SAMPLES.map((sm) => (
+          <button key={sm.id} type="button" onClick={() => onChange({ contract: sm.contract, thread: sm.thread, clientName: sm.clientName })}
+            className="rounded-full border border-navy/30 bg-card px-4 py-1.5 text-sm font-medium text-navy hover:border-navy">
+            Load sample: {sm.title}
+          </button>
+        ))}
         <span className="text-xs text-muted">Synthetic data. Nothing here is a real client.</span>
       </div>
 

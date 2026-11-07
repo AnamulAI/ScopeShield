@@ -12,5 +12,5 @@
     "types": ["vite/client"],
     "resolveJsonModule": true
   },
-  "include": ["src", "evals/sample-thread.json"]
+  "include": ["src", "samples"]
 }

@@ -1,21 +1,10 @@
-# Credit usage for one full analysis
+# Credit usage per analysis
 
-Measured on 2026-11-07 from `X-Clocked-Credits`, on `evals/sample-thread.json` (17 messages, 10 from the client, 5 requests found). Fill is not part of the base pipeline; it runs only for change-order items.
+Measured on 2026-11-07 from `X-Clocked-Credits` while recording the three demo samples (`npm run snapshot`). Calls / credits per endpoint.
+Each run = Extract per client message + Decide per request + Extract for the agreement/withdrawal sentence of AGREED EXTRA and WITHDRAWN items (counted under Extract) + Fill per NEEDS CHANGE ORDER and ASK ME item (Fill is on demand in the live app; the recording prepares all of them).
 
-| Endpoint | Calls | Credits |
-|---|---|---|
-| extract | 10 | 36 |
-| decide | 5 | 11 |
-| **Total** | 15 | **47** |
-
-Average: 3.6 credits per client message (extract) + 2.2 per request (decide).
-
-## Result of this run
-
-| Msg | Request | Evidence | outside / paid | Queue |
-|---|---|---|---|---|
-| 1 | Can you change the banner colour to dark green? | ok | 0.01 / 0.01 | in_scope |
-| 3 | add online ordering so customers can order cakes | ok | 0.99 / 0.00 | needs_change_order |
-| 6 | add a small WhatsApp reserve button, just a link, no extra cost | ok | 0.07 / 0.00 | in_scope |
-| 7 | add a Bengali version of the site | ok | 0.97 / 0.00 | withdrawn |
-| 12 | Can you add a blog section for our recipes? | ok | 0.99 / 0.00 | needs_change_order |
+| Sample | Messages / client messages | Requests | Extract (calls / credits) | Decide | Fill | Total credits |
+|---|---|---|---|---|---|---|
+| Bakery website | 36 / 20 | 9 | 23 / 89 | 9 / 25 | 3 / 27 | **141** |
+| Fitness app MVP | 17 / 10 | 4 | 11 / 42 | 4 / 8 | 3 / 26 | **76** |
+| Brand identity | 17 / 10 | 6 | 11 / 46 | 6 / 15 | 2 / 21 | **82** |
