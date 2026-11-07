@@ -15,8 +15,8 @@ interface DemoIndexEntry { id: string; title: string; blurb: string; recordedAt:
 
 const Shield = () => (
   <svg width="30" height="32" viewBox="0 0 26 28" aria-hidden>
-    <path d="M13 1.5 2.5 5v8.2c0 6.2 4.3 10.9 10.5 13.3 6.2-2.4 10.5-7.1 10.5-13.3V5L13 1.5Z" fill="#1b2a41" />
-    <path d="m8.2 13.8 3.6 3.6 6.2-7" fill="none" stroke="#f4efe4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 1.5 2.5 5v8.2c0 6.2 4.3 10.9 10.5 13.3 6.2-2.4 10.5-7.1 10.5-13.3V5L13 1.5Z" style={{ fill: "var(--color-navy)" }} />
+    <path d="m8.2 13.8 3.6 3.6 6.2-7" fill="none" style={{ stroke: "var(--color-paper)" }} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -176,8 +176,8 @@ export default function App() {
               ))}
             </div>
             <p className="min-h-6 max-w-2xl text-[0.9375rem] text-ink/80">{demoIndex?.find((d) => d.id === demoId)?.blurb}</p>
-            <div className="flex gap-3 rounded-xl border border-agreed/25 bg-agreed-bg/70 px-4 py-3 text-sm text-ink">
-              <span aria-hidden className="mt-0.5 text-agreed">●</span>
+            <div className="flex gap-3 rounded-xl border border-line bg-paper-deep px-4 py-3 text-sm text-ink">
+              <span aria-hidden className="mt-0.5 text-navy">●</span>
               <p>
                 {/* The text has the same length before and after the data loads (invisible placeholders), so nothing shifts. */}
                 <b>Recorded from a live Clocked run on <span className={snap ? "" : "invisible"}>{snap?.recordedAt ?? "2026-11-07"}</span>.</b>{" "}

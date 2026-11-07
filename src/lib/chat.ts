@@ -19,8 +19,8 @@ export function initials(name: string): string {
   return (first + last).toLocaleUpperCase();
 }
 
-// Avatar fills, each with >= 4.5:1 contrast against white text.
-export const AVATAR_COLORS = ["#17607c", "#a23f0b", "#5a3fa5", "#25664a", "#2f4b8a", "#5b5e66"] as const;
+// Avatar fills are design tokens (no extra hues), each with >= 4.5:1 contrast against the cream initials.
+export const AVATAR_COLORS = ["var(--color-agreed)", "var(--color-change)", "var(--color-ask)", "var(--color-scope)", "var(--color-navy)", "var(--color-withdrawn)"] as const;
 
 /** Colour by order of first appearance, so two participants never share a colour (up to six). */
 export const avatarColor = (people: { name: string }[], name: string): string => {

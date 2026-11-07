@@ -150,7 +150,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
             </div>
           )}
           {askHint && finished && !groups.get("ask_me")?.length && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ask/30 bg-ask-bg/50 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ask/30 bg-ask-bg px-5 py-4">
               <p className="text-sm text-ink/85"><b>No Ask me items in this thread.</b> That is where the app asks you one question when it is unsure.</p>
               <button onClick={askHint.onOpen} className="rounded-xl border border-ask/50 bg-card px-4 py-2 text-sm font-semibold text-ask shadow-card press hover:border-ask hover:shadow-lift">
                 See an Ask me example in the Brand identity sample →

@@ -34,7 +34,7 @@ export function HeroFlow() {
       ))}
 
       {/* the thread the messages come from (stays put, faint) */}
-      {WIDTHS.map((w, n) => <rect key={n} x={START_X} y={ROW(n) - 6} width={w} height={12} rx={6} fill="#e4dccb" />)}
+      {WIDTHS.map((w, n) => <rect key={n} x={START_X} y={ROW(n) - 6} width={w} height={12} rx={6} fill="var(--color-line)" />)}
 
       {/* messages: neutral line that turns into its queue's colour after the shield */}
       {TARGET.map((q, n) => {
@@ -48,7 +48,7 @@ export function HeroFlow() {
         } as CSSProperties;
         return (
           <g key={n} className="flow-item" style={style}>
-            <rect className="flow-neutral" x={START_X} y={ROW(n) - 6} width={w} height={12} rx={6} fill="#cfc6af" />
+            <rect className="flow-neutral" x={START_X} y={ROW(n) - 6} width={w} height={12} rx={6} fill="var(--color-stone)" />
             <rect className="flow-tint" x={START_X} y={ROW(n) - 6} width={w} height={12} rx={6} fill={COLORS[q].fg} />
           </g>
         );

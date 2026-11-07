@@ -78,7 +78,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
 
       {/* ASK ME: one concrete question, three answers */}
       {item.route?.queue === "ask_me" && item.route.ask && (
-        <div className="mt-5 rounded-2xl border border-ask/25 bg-ask-bg/60 p-4 sm:p-5">
+        <div className="mt-5 rounded-2xl border border-ask/25 bg-ask-bg p-4 sm:p-5">
           {needsAnswer ? (
             <>
               <p className="t-eyebrow text-ask">One question for you</p>
@@ -108,7 +108,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
 
       {/* AGREED EXTRA / WITHDRAWN: the sentence that supports the verdict */}
       {item.support && (
-        <div className={`mt-5 rounded-xl border-l-4 px-4 py-3 text-sm ${item.support.kind === "agreement" ? "border-agreed bg-agreed-bg/70" : "border-withdrawn bg-withdrawn-bg/80"}`}>
+        <div className={`mt-5 rounded-xl border-l-4 px-4 py-3 text-sm ${item.support.kind === "agreement" ? "border-agreed bg-agreed-bg" : "border-withdrawn bg-withdrawn-bg"}`}>
           <p className="t-eyebrow text-muted">{item.support.kind === "agreement" ? "Agreement found" : "Withdrawal found"}</p>
           {item.support.status === "running" && <p role="status" className="mt-1 flex items-center gap-2 text-muted"><span className="spinner" /> Locating the sentence…</p>}
           {item.support.status === "failed" && (

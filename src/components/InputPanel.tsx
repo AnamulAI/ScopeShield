@@ -6,7 +6,7 @@ import { SAMPLES } from "../lib/samples";
 export interface Inputs { contract: string; thread: string; clientName: string }
 interface Props { value: Inputs; onChange: (v: Inputs) => void; onAnalyze: () => void; busy: boolean }
 
-const field = "w-full rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6 shadow-[inset_0_1px_2px_rgb(26_33_51/0.05)] placeholder:text-muted/80 focus:border-navy";
+const field = "w-full rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6 shadow-inset placeholder:text-muted/80 focus:border-navy";
 
 export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
   const check = useMemo(() => checkInputs(value.contract, value.thread, value.clientName), [value]);
@@ -70,7 +70,7 @@ export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
           {check.problems.map((p) => <li key={p}>{p}</li>)}
         </ul>
       )}
-      <p className="rounded-lg bg-paper-deep/60 px-4 py-3 text-xs leading-5 text-muted">
+      <p className="rounded-lg bg-paper-deep px-4 py-3 text-xs leading-5 text-muted">
         Live analysis spends Clocked credits (about 3–4 per client message plus about 2 per request found). Your text is sent to the Clocked API through this app’s server and is not stored by the app.
       </p>
     </form>

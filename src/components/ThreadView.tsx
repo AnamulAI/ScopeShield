@@ -55,16 +55,16 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
             {typing && (
               <div aria-hidden="true" className={`typing absolute top-0 ${right ? "right-0 flex-row-reverse" : "left-0"} flex items-center gap-2`}>
                 <span className="h-8 w-8 shrink-0" />
-                <span className="flex items-center gap-1 rounded-2xl bg-white px-3 py-2.5 shadow-card"><i /><i /><i /></span>
+                <span className="flex items-center gap-1 rounded-2xl border border-line bg-card px-3 py-2.5 shadow-card"><i /><i /><i /></span>
               </div>
             )}
             <div aria-hidden={hidden ? true : undefined} inert={hidden ? true : undefined}
               className={`replay-item flex max-w-[84%] items-end gap-2 sm:max-w-[78%] ${right ? "flex-row-reverse" : ""} ${hidden ? "is-hidden" : ""}`}>
               {pl.firstInGroup ? (
-                <span aria-hidden="true" title={m.speaker} className="mb-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: color }}>{initials(m.speaker)}</span>
+                <span aria-hidden="true" title={m.speaker} className="mb-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-card" style={{ background: color }}>{initials(m.speaker)}</span>
               ) : <span className="h-8 w-8 shrink-0" />}
               <div className={`min-w-0 ${right ? "items-end text-right" : "items-start"} flex flex-col`}>
-                {pl.firstInGroup && <span className="mb-1 px-1 text-xs font-semibold text-[#3f4859]">{m.speaker}{m.isClient ? " · client" : ""}</span>}
+                {pl.firstInGroup && <span className="mb-1 px-1 text-xs font-semibold text-muted">{m.speaker}{m.isClient ? " · client" : ""}</span>}
                 <p data-bubble className={`bubble whitespace-pre-wrap break-words px-4 py-2.5 text-left font-sans text-[0.9375rem] leading-6 ${right ? "bubble-right" : "bubble-left"} ${pl.firstInGroup ? (right ? "tail-right" : "tail-left") : ""} ${pulse ? "bubble-pulse" : ""}`}>
                   {segs.map((seg, k) => {
                     if (!seg.id) return <span key={k}>{seg.text}</span>;
@@ -95,8 +95,8 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                         </button>
                       );
                     })}
-                    {st?.status === "done" && st.requestCount === 0 && <span className="rounded-full bg-[#dde3ea] px-2.5 py-1 text-xs font-medium text-[#3f4859]">No actionable request</span>}
-                    {st?.status === "running" && <span className="flex items-center gap-1.5 rounded-full bg-[#dde3ea] px-2.5 py-1 text-xs text-[#3f4859]" role="status"><span className="spinner" /> Reading</span>}
+                    {st?.status === "done" && st.requestCount === 0 && <span className="rounded-full border border-line bg-paper px-2.5 py-1 text-xs font-medium text-muted">No actionable request</span>}
+                    {st?.status === "running" && <span className="flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-1 text-xs text-muted" role="status"><span className="spinner" /> Reading</span>}
                     {st?.status === "failed" && (
                       <span className="flex items-center gap-2 rounded-full bg-change-bg px-2.5 py-1 text-xs text-change" role="alert">
                         <span title={describeError(st.errorKind, st.error).hint}>{describeError(st.errorKind, st.error).title}</span>

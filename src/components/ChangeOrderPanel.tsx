@@ -4,7 +4,7 @@ import { countVerdicts, verifyCopyState, type VerifiedClaim } from "../lib/verif
 import { CopyButton } from "./CopyButton";
 
 const Chip = () => (
-  <span className="t-eyebrow inline-flex items-center gap-1 rounded-full border border-ask/30 bg-ask-bg px-2.5 py-0.5 text-ask"><span aria-hidden>✦</span>AI-generated draft</span>
+  <span className="t-eyebrow inline-flex items-center gap-1 rounded-full border border-line bg-paper-deep px-2.5 py-0.5 text-ink"><span aria-hidden>✦</span>AI-generated draft</span>
 );
 
 interface Props {
@@ -45,8 +45,8 @@ export function ChangeOrderPanel({ item, open, setOpen, onPrepare, onRegenerate,
   const reason = invented ? "Blocked: the draft contains an amount that is not in the thread." : vs.blockedReason ?? (vs.needsAck ? "Click “I’ve read this” on the not-found note first." : undefined);
   const warn = (amounts: string[]) =>
     amounts.length > 0 && (
-      <div role="alert" className="mt-2.5 flex gap-2.5 rounded-xl border border-change/40 bg-change-bg px-3.5 py-3 text-xs leading-5 text-ink">
-        <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-change text-xs font-bold text-white">✕</span><span><b className="text-change">Copy blocked.</b> This draft mentions {amounts.join(", ")}, which does not appear in the contract or thread, so it may be an invented price.{" "}
+      <div role="alert" className="mt-2.5 flex gap-2.5 rounded-xl border border-change/30 bg-change-bg px-3.5 py-3 text-xs leading-5 text-ink">
+        <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-change text-xs font-bold text-card">✕</span><span><b className="text-change">Copy blocked.</b> This draft mentions {amounts.join(", ")}, which does not appear in the contract or thread, so it may be an invented price.{" "}
         {st.regenerated ? "The one Regenerate attempt is used. Write this part yourself." : (
           <button onClick={onRegenerate} className="ml-1 rounded-md bg-navy px-2.5 py-1 font-semibold text-paper">Regenerate once</button>
         )}</span>
@@ -86,7 +86,7 @@ export function ChangeOrderPanel({ item, open, setOpen, onPrepare, onRegenerate,
 
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2"><span className="t-eyebrow text-muted">Message to client</span><Chip /></div>
-        <p className="whitespace-pre-wrap rounded-xl border border-ask/25 bg-card px-4 py-3 text-[0.9375rem] leading-6">{co.message ?? "No message was generated."}</p>
+        <p className="whitespace-pre-wrap rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6">{co.message ?? "No message was generated."}</p>
         {warn(co.inventedMessage)}
         <VerifyBlock item={item} onShowEvidence={onShowEvidence} onAck={onAck} onRetry={onRetryVerify} />
         {co.message && <div className="mt-3"><CopyButton text={co.message} label="Copy message" blockedReason={messageReason} /></div>}
@@ -94,7 +94,7 @@ export function ChangeOrderPanel({ item, open, setOpen, onPrepare, onRegenerate,
 
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2"><span className="t-eyebrow text-muted">Next step for you</span><Chip /></div>
-        <p className="rounded-xl border border-ask/25 bg-card px-4 py-3 text-[0.9375rem] leading-6">{co.nextStep ?? "No next step was generated."}</p>
+        <p className="rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6">{co.nextStep ?? "No next step was generated."}</p>
         {warn(co.inventedNextStep)}
       </div>
 
@@ -144,8 +144,8 @@ function VerifyBlock({ item, onShowEvidence, onAck, onRetry }: { item: RequestIt
         <span className="text-muted">{n.supported} supported{n.notStated ? `, ${n.notStated} not found` : ""}{n.contradicted ? `, ${n.contradicted} contradicted` : ""}</span>
       </p>
       {claims.filter((c) => c.verdict === "contradicted").map((c) => (
-        <div key={idx(c)} role="alert" className="flex gap-2.5 rounded-xl border border-change/40 bg-change-bg px-3.5 py-3 text-xs leading-5 text-ink">
-          <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-change text-xs font-bold text-white">✕</span>
+        <div key={idx(c)} role="alert" className="flex gap-2.5 rounded-xl border border-change/30 bg-change-bg px-3.5 py-3 text-xs leading-5 text-ink">
+          <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-change text-xs font-bold text-card">✕</span>
           <div>
             <p><b className="text-change">Contradicted. Copy is blocked.</b> “{c.text}”</p>
             <ClaimEvidence claim={c} spanId={`${item.id}:v${idx(c)}`} onShow={onShowEvidence} />
@@ -154,8 +154,8 @@ function VerifyBlock({ item, onShowEvidence, onAck, onRetry }: { item: RequestIt
         </div>
       ))}
       {claims.filter((c) => c.verdict === "not_stated").map((c) => (
-        <div key={idx(c)} className="flex gap-2.5 rounded-xl border border-warn/40 bg-warn-bg px-3.5 py-3 text-xs leading-5 text-ink">
-          <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-warn text-xs font-bold text-white">!</span>
+        <div key={idx(c)} className="flex gap-2.5 rounded-xl border border-warn/30 bg-warn-bg px-3.5 py-3 text-xs leading-5 text-ink">
+          <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-warn text-xs font-bold text-card">!</span>
           <div>
             <p><b className="text-warn">Not found in the thread.</b> “{c.text}”</p>
             <ClaimEvidence claim={c} spanId={`${item.id}:v${idx(c)}`} onShow={onShowEvidence} />

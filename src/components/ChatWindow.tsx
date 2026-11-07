@@ -55,39 +55,39 @@ export const ChatWindow = forwardRef<ChatHandle, Props>(function ChatWindow({ an
 
   return (
     <section id="chat-window" aria-label="Chat window: the thread" className="chat-window scroll-mt-20 flex h-[calc(100dvh-9.5rem)] min-h-[28rem] flex-col overflow-hidden lg:h-[calc(100vh-7rem)] lg:max-h-[780px]">
-      <header className="flex items-center gap-3 border-b border-[#d5dde8] bg-[#f6f8fb] px-4 py-3">
+      <header className="flex items-center gap-3 border-b border-line bg-card px-4 py-3">
         <div className="flex -space-x-2" aria-hidden="true">
           {people.slice(0, 4).map((p) => (
-            <span key={p.name} className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ring-2 ring-[#f6f8fb]" style={{ background: avatarColor(people, p.name) }}>{initials(p.name)}</span>
+            <span key={p.name} className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-card ring-2 ring-card" style={{ background: avatarColor(people, p.name) }}>{initials(p.name)}</span>
           ))}
         </div>
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-ink">{names || "Thread"}</h3>
-          <p className="text-xs text-[#3f4859]">{analysis.messages.length} messages</p>
+          <p className="text-xs text-muted">{analysis.messages.length} messages</p>
         </div>
-        <span className={`t-eyebrow ml-auto shrink-0 rounded-full px-2.5 py-1 ${recorded ? "bg-agreed-bg text-agreed" : "bg-paper-deep text-ink"}`}>{recorded ? "Recorded thread" : "Your thread"}</span>
+        <span className={`t-eyebrow ml-auto shrink-0 rounded-full px-2.5 py-1 border border-line bg-paper-deep text-ink`}>{recorded ? "Recorded thread" : "Your thread"}</span>
       </header>
 
       <div ref={body} role="log" aria-label="Chat thread" aria-live="polite" aria-relevant="additions" tabIndex={0}
         onWheel={() => (userScrolled.current = true)} onTouchMove={() => (userScrolled.current = true)}
         onKeyDown={(e) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(e.key)) userScrolled.current = true; }}
-        className="chat-canvas relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        className="chat-canvas chat-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ThreadView analysis={analysis} openIds={openIds} activeId={activeId} onPick={onPick} onRetryMessage={onRetryMessage}
           revealed={recorded ? replay.revealed : undefined} typingIndex={recorded ? replay.typing : null} />
       </div>
 
       {recorded && (
-        <footer className="border-t border-[#d5dde8] bg-white px-3 py-3">
-          <p className="mb-2 px-1 text-xs leading-5 text-[#3f4859]">Replaying a recorded thread. Verdicts come from the recorded Clocked run.</p>
-          <div role="group" aria-label="Replay controls" className="flex flex-wrap items-center gap-2 rounded-2xl bg-[#eef2f7] p-1.5 pl-3">
-            <span className="t-eyebrow tnum mr-auto text-[#3f4859]">Replay {replay.revealed}/{replay.total}</span>
+        <footer className="border-t border-line bg-card px-3 py-3">
+          <p className="mb-2 px-1 text-xs leading-5 text-muted">Replaying a recorded thread. Verdicts come from the recorded Clocked run.</p>
+          <div role="group" aria-label="Replay controls" className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-paper p-1.5 pl-3">
+            <span className="t-eyebrow tnum mr-auto text-muted">Replay {replay.revealed}/{replay.total}</span>
             <button onClick={() => { userScrolled.current = false; (replay.playing ? replay.pause : replay.play)(); }} className={`${ctl} bg-navy text-paper hover:bg-navy/90`}>
               {replay.playing ? <PauseIcon width={14} height={14} /> : <PlayIcon width={14} height={14} />}{replay.playing ? "Pause" : replay.revealed >= replay.total ? "Replay" : "Play"}
             </button>
-            <button onClick={replay.finish} disabled={replay.revealed >= replay.total} className={`${ctl} bg-white text-navy hover:bg-paper disabled:opacity-50`}><SkipEndIcon width={14} height={14} />Skip to end</button>
-            <button onClick={() => { userScrolled.current = false; replay.restart(); }} className={`${ctl} bg-white text-navy hover:bg-paper`}><RestartIcon width={14} height={14} />Restart</button>
+            <button onClick={replay.finish} disabled={replay.revealed >= replay.total} className={`${ctl} border border-line bg-card text-navy hover:bg-paper-deep disabled:opacity-50`}><SkipEndIcon width={14} height={14} />Skip to end</button>
+            <button onClick={() => { userScrolled.current = false; replay.restart(); }} className={`${ctl} border border-line bg-card text-navy hover:bg-paper-deep`}><RestartIcon width={14} height={14} />Restart</button>
           </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#dde3ea]" aria-hidden="true">
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-paper-deep" aria-hidden="true">
             <div className="h-full origin-left bg-navy/70 transition-transform duration-300" style={{ transform: `scaleX(${pct})` }} />
           </div>
           <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="replay-live">{replay.live}</p>
