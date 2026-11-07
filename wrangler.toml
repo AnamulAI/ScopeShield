@@ -1,3 +1,8 @@
 name = "scopeshield"
 compatibility_date = "2026-10-01"
 pages_build_output_dir = "./dist"
+
+# Daily caps (per IP and global) for the public live proxy. Namespace ids are not secrets.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "5d5f0cf523b34df894c8d8fb5c7197d7"
