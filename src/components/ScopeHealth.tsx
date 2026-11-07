@@ -45,7 +45,7 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
           <label className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink">
             Optional hourly rate
             <input inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} placeholder="e.g. 40"
-              className="w-28 rounded-lg border border-line bg-card px-3 py-1.5 text-sm text-ink placeholder:text-muted/70" aria-describedby="rate-note" />
+              className="w-28 rounded-lg border border-line bg-card px-3 py-1.5 text-sm text-ink placeholder:text-muted/80" aria-describedby="rate-note" />
           </label>
           <p id="rate-note" className="mt-1.5 text-xs text-muted">Money is shown only if you type a rate (no currency assumed).</p>
           <p className="mt-3 text-xs leading-5 text-muted">
@@ -55,12 +55,12 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
       </div>
 
       <div className="order-1 rounded-2xl bg-navy p-5 text-paper shadow-lift sm:p-6 lg:order-2 lg:self-start">
-        <p className="t-eyebrow text-paper/75">Scope health · unpaid work found</p>
+        <p className="t-eyebrow text-paper/85">Scope health · unpaid work found</p>
         <p className="mt-3 font-display text-[3rem] leading-none tnum">{headline}</p>
         <p className="mt-3 text-sm text-paper/85">{items.length === 0 ? "No requests analysed yet. " : ""}{hc.max === null && hc.items > 0 ? "at least, " : ""}across {hc.items} request{hc.items === 1 ? "" : "s"} needing a change order</p>
         {confirmedMoney && <p className="mt-1 text-sm font-semibold">≈ {confirmedMoney} at your rate</p>}
         <div className="mt-4 border-t border-paper/20 pt-4 text-sm">
-          <p><span className="text-paper/75">Possibly unpaid:</span> <b>{formatHours(h.possibleUnpaid)}</b> <span className="text-paper/75">in {h.possibleUnpaid.items} unresolved Ask me item{h.possibleUnpaid.items === 1 ? "" : "s"}</span></p>
+          <p><span className="text-paper/85">Possibly unpaid:</span> <b>{formatHours(h.possibleUnpaid)}</b> <span className="text-paper/85">in {h.possibleUnpaid.items} unresolved Ask me item{h.possibleUnpaid.items === 1 ? "" : "s"}</span></p>
           {possibleMoney && <p className="mt-1 text-xs text-paper/85">≈ {possibleMoney} at your rate</p>}
         </div>
       </div>

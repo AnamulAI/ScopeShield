@@ -6,7 +6,7 @@ import { SAMPLES } from "../lib/samples";
 export interface Inputs { contract: string; thread: string; clientName: string }
 interface Props { value: Inputs; onChange: (v: Inputs) => void; onAnalyze: () => void; busy: boolean }
 
-const field = "w-full rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6 shadow-[inset_0_1px_2px_rgb(26_33_51/0.05)] placeholder:text-muted/70 transition focus:border-navy";
+const field = "w-full rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] leading-6 shadow-[inset_0_1px_2px_rgb(26_33_51/0.05)] placeholder:text-muted/80 transition focus:border-navy";
 
 export function InputPanel({ value, onChange, onAnalyze, busy }: Props) {
   const check = useMemo(() => checkInputs(value.contract, value.thread, value.clientName), [value]);

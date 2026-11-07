@@ -114,7 +114,7 @@ export default function App() {
         <span aria-hidden className={`flex h-5 w-5 items-center justify-center rounded-full border ${mode === m ? "border-paper bg-paper text-navy" : "border-line"}`}>{mode === m ? "✓" : ""}</span>
       </span>
       <span className={`text-sm ${mode === m ? "text-paper/90" : "text-ink/80"}`}>{line}</span>
-      <span className={`t-eyebrow mt-2 ${mode === m ? "text-paper/70" : "text-muted"}`}>{meta}</span>
+      <span className={`t-eyebrow mt-2 ${mode === m ? "text-paper/85" : "text-muted"}`}>{meta}</span>
     </button>
   );
 

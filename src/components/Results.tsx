@@ -113,10 +113,12 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
             </div>
           )}
           {askHint && finished && !groups.get("ask_me")?.length && (
-            <p className="rounded-xl border border-dashed border-ask/40 bg-ask-bg/40 px-4 py-3 text-sm text-ink/80">
-              No Ask me items in this thread.{" "}
-              <button onClick={askHint.onOpen} className="font-semibold text-ask underline underline-offset-4">See an Ask me example in the Brand identity sample</button>
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ask/30 bg-ask-bg/50 px-5 py-4">
+              <p className="text-sm text-ink/85"><b>No Ask me items in this thread.</b> That is where the app asks you one question when it is unsure.</p>
+              <button onClick={askHint.onOpen} className="rounded-xl border border-ask/50 bg-card px-4 py-2 text-sm font-semibold text-ask shadow-card transition hover:border-ask hover:shadow-lift">
+                See an Ask me example in the Brand identity sample →
+              </button>
+            </div>
           )}
           {QUEUE_ORDER.filter((q) => groups.get(q)?.length).map((q) => (
             <section key={q} id={`queue-${q}`} aria-labelledby={`h-${q}`} className="scroll-mt-6 space-y-4">

@@ -2,7 +2,7 @@ import { describeError } from "../lib/errors";
 import { forwardRef } from "react";
 import type { RequestItem } from "../lib/pipeline";
 import { effortLabel } from "../lib/health";
-import { askQuestion, effectiveQueue, THRESHOLDS, type Decision } from "../lib/routing";
+import { askQuestion, effectiveQueue, showWithdrawalNote, THRESHOLDS, type Decision } from "../lib/routing";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { ProbBar } from "./ProbBar";
 import { QUEUES } from "./queues";
@@ -59,6 +59,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
       {v && modelQ && item.route && (
         <>
           <p className="mt-3 text-sm text-ink/80">{item.route.reason}</p>
+          {showWithdrawalNote(eq, v.withdrawn) && <p className="mt-1 text-sm text-muted">Withdrawal is below {Math.round(THRESHOLDS.withdrawn * 100)}%, so this request stays active.</p>}
           <div className="mt-4 space-y-2.5">
             <ProbBar label="Outside contract" value={v.outside} ticks={[THRESHOLDS.inScopeBelow, THRESHOLDS.outsideAtLeast]} tone="bg-navy" hint="Notches at 30% and 70%: below 30% is in scope, from 70% is outside." />
             <ProbBar label="Agreed to pay" value={v.paid} ticks={[THRESHOLDS.paidNo, THRESHOLDS.paidYes]} tone="bg-agreed" hint="Notches at 25% and 75%." />

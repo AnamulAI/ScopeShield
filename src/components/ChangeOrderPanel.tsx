@@ -46,7 +46,7 @@ export function ChangeOrderPanel({ item, open, setOpen, onPrepare, onRegenerate,
   const warn = (amounts: string[]) =>
     amounts.length > 0 && (
       <div role="alert" className="mt-2.5 flex gap-2.5 rounded-xl border border-change/40 bg-change-bg px-3.5 py-3 text-xs leading-5 text-ink">
-        <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-change text-[10px] font-bold text-white">✕</span><span><b className="text-change">Copy blocked.</b> This draft mentions {amounts.join(", ")}, which does not appear in the contract or thread, so it may be an invented price.{" "}
+        <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-change text-xs font-bold text-white">✕</span><span><b className="text-change">Copy blocked.</b> This draft mentions {amounts.join(", ")}, which does not appear in the contract or thread, so it may be an invented price.{" "}
         {st.regenerated ? "The one Regenerate attempt is used. Write this part yourself." : (
           <button onClick={onRegenerate} className="ml-1 rounded-md bg-navy px-2.5 py-1 font-semibold text-paper">Regenerate once</button>
         )}</span>
@@ -145,7 +145,7 @@ function VerifyBlock({ item, onShowEvidence, onAck, onRetry }: { item: RequestIt
       </p>
       {claims.filter((c) => c.verdict === "contradicted").map((c) => (
         <div key={idx(c)} role="alert" className="flex gap-2.5 rounded-xl border border-change/40 bg-change-bg px-3.5 py-3 text-xs leading-5 text-ink">
-          <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-change text-[10px] font-bold text-white">✕</span>
+          <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-change text-xs font-bold text-white">✕</span>
           <div>
             <p><b className="text-change">Contradicted. Copy is blocked.</b> “{c.text}”</p>
             <ClaimEvidence claim={c} spanId={`${item.id}:v${idx(c)}`} onShow={onShowEvidence} />
@@ -155,7 +155,7 @@ function VerifyBlock({ item, onShowEvidence, onAck, onRetry }: { item: RequestIt
       ))}
       {claims.filter((c) => c.verdict === "not_stated").map((c) => (
         <div key={idx(c)} className="flex gap-2.5 rounded-xl border border-warn/40 bg-warn-bg px-3.5 py-3 text-xs leading-5 text-ink">
-          <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warn text-[10px] font-bold text-white">!</span>
+          <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-warn text-xs font-bold text-white">!</span>
           <div>
             <p><b className="text-warn">Not found in the thread.</b> “{c.text}”</p>
             <ClaimEvidence claim={c} spanId={`${item.id}:v${idx(c)}`} onShow={onShowEvidence} />

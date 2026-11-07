@@ -38,3 +38,8 @@ export function askQuestion(request: string, ask: AskKind): string {
     ? `Is “${r}” part of what you agreed to deliver in the contract?`
     : `“${r}” is outside the contract. Did the client clearly agree to pay extra for it?`;
 }
+
+/** Display only (routing is unchanged): a needs-change-order request whose withdrawal probability is in this band gets an explanatory note. */
+export const WITHDRAWAL_NOTE_FROM = 0.3;
+export const showWithdrawalNote = (queue: Queue | "pending", withdrawn: number): boolean =>
+  queue === "needs_change_order" && withdrawn >= WITHDRAWAL_NOTE_FROM && withdrawn < THRESHOLDS.withdrawn;

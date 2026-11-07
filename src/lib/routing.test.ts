@@ -29,7 +29,7 @@ describe("route", () => {
   });
 });
 
-import { askQuestion, effectiveQueue } from "./routing";
+import { askQuestion, effectiveQueue, showWithdrawalNote } from "./routing";
 describe("ASK ME kinds, decisions and questions", () => {
   it("records why an item is ambiguous", () => {
     expect(route({ outside: 0.5, paid: 0, withdrawn: 0 }).ask).toBe("scope");
@@ -49,5 +49,18 @@ describe("ASK ME kinds, decisions and questions", () => {
   it("builds one concrete question per kind from a template", () => {
     expect(askQuestion("add a WhatsApp button?", "scope")).toBe("Is “add a WhatsApp button” part of what you agreed to deliver in the contract?");
     expect(askQuestion("add a blog", "agreement")).toContain("clearly agree to pay extra");
+  });
+});
+
+describe("showWithdrawalNote (display only)", () => {
+  it("shows for needs-change-order items with withdrawal in [0.30, 0.75)", () => {
+    expect(showWithdrawalNote("needs_change_order", 0.56)).toBe(true);
+    expect(showWithdrawalNote("needs_change_order", 0.3)).toBe(true);
+    expect(showWithdrawalNote("needs_change_order", 0.299)).toBe(false);
+    expect(showWithdrawalNote("needs_change_order", 0.75)).toBe(false);
+  });
+  it("never shows for other queues, and routing is unchanged by it", () => {
+    for (const q of ["in_scope", "ask_me", "agreed_extra", "withdrawn", "pending"] as const) expect(showWithdrawalNote(q, 0.5)).toBe(false);
+    expect(route({ outside: 0.99, paid: 0, withdrawn: 0.56 }).queue).toBe("needs_change_order");
   });
 });
