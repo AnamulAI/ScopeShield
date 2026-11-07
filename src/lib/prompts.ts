@@ -88,7 +88,7 @@ export function buildFillRequest(contract: string, thread: string, request: stri
         price_mentioned: {
           type: "extract",
           infer: false,
-          description: `A price explicitly stated in the thread for ${r}. Null if no price was stated for it.`,
+          description: `A specific monetary amount (a number with a currency) stated in the thread for ${r}. Statements such as 'free', 'no extra cost' or 'how much?' are NOT a price. Null if no amount was stated for it.`,
         },
         change_order_message: {
           type: "generate",

@@ -211,6 +211,15 @@
           "banner"
         ]
       }
+    },
+    {
+      "id": "fill-no-extra-cost-is-not-a-price",
+      "kind": "fill",
+      "thread": "Client: Could you add a small WhatsApp reserve button? Just a link, no extra cost.",
+      "request": "add a small WhatsApp reserve button",
+      "expect": {
+        "priceNull": true
+      }
     }
   ]
 }

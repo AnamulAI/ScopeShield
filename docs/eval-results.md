@@ -2,7 +2,7 @@
 
 Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/golden.json`. Real numbers only.
 
-**18/18 cases passed.**
+**19/19 cases passed.**
 
 | Case | Endpoint | Result | Detail |
 |---|---|---|---|
@@ -18,12 +18,13 @@ Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/g
 | extract-two-requests | extract | PASS | 2 item(s): "change the banner to green 😀", "add a blog section" |
 | extract-no-request | extract | PASS | 0 item(s):  |
 | fill-anchor-analytics | fill | PASS | price=null; msg="I can certainly add Google Analytics for you; the price for this will be confirmed…" |
-| fill-anchor-blog | fill | PASS | price=null; msg="I can certainly add a blog section for your recipes; the price for this change order will …" |
+| fill-anchor-blog | fill | PASS | price=null; msg="I can certainly help you with adding a blog section for your recipes; the price for this w…" |
 | fill-no-price-quoted | fill | PASS | price=null; msg="I can certainly help you with adding online ordering for cakes; the price for this will be…" |
-| fill-price-quoted | fill | PASS | price=$150; msg="I would like to propose a change order to add a Bengali version of the site for an additio…" |
+| fill-price-quoted | fill | PASS | price=$150; msg="I would be happy to add a Bengali version of the site for you. This would be an additional…" |
 | extract-cancellation | extract | PASS | 0 item(s):  |
 | extract-acceptance | extract | PASS | 0 item(s):  |
 | extract-polite-question | extract | PASS | 1 item(s): "Can you change the banner colour to dark green?" |
+| fill-no-extra-cost-is-not-a-price | fill | PASS | price=null; msg="I would be happy to add a small WhatsApp reserve button for you. The price for this will b…" |
 
 ## Credits used by this eval run
 
@@ -31,8 +32,8 @@ Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/g
 |---|---|---|
 | extract | 5 | 17 |
 | decide | 9 | 14 |
-| fill | 4 | 27 |
-| **Total** | 18 | **58** |
+| fill | 5 | 37 |
+| **Total** | 19 | **68** |
 
 ## Notes and history (hand-written; appended to every eval run)
 
