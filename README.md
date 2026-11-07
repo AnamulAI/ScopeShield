@@ -24,7 +24,25 @@ Freelancers and small agencies who agree work in chat and email.
 
 Demo mode replays recorded live Clocked results and makes no API calls. Run live analyses your own text. All sample data is synthetic.
 
-*The rest of this README (endpoint table, evals, credit usage, limitations, credits) is written in the next milestone. Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).*
+## How ScopeShield uses Clocked
+
+ScopeShield uses four Clocked endpoints in one pipeline. Each output changes what the app does or shows.
+
+1. **Extract** (per client message). Finds each separate request the client makes as a verbatim span with character offsets. The offsets drive the evidence highlights in the thread, and an empty result is shown as "no actionable request". It also finds the agreement or withdrawal sentence and, for agreed work, the price quoted for that request ("No price found" when the value is null).
+
+2. **Decide** (per request, on the contract plus the full thread). Questions: is it outside the contract, did the client clearly agree to pay, did the client later withdraw it, what kind of request it is, and how much effort it needs. The application owns the routing. Outside below 0.30 is in scope. Outside at or above 0.70 with agreement to pay at or above 0.75 is an agreed extra; with agreement at or below 0.25 it needs a change order. Anything in the uncertain bands goes to the Ask me queue, where the app asks one concrete question. A withdrawal probability of 0.75 or more moves the request to Withdrawn, which is checked first: the request is excluded from Fill and from the Scope Health numbers, and only its withdrawal sentence is looked up for display. So Decide's probabilities choose the queue, trigger questions to the user and feed the hour estimates.
+
+3. **Fill** (on demand, for change-order items, and for Ask me items you resolve as extra work). One call fills a record: category, unpaid risk, the price quoted, a short message to the client and a next step. Decide's effort and agreement results are passed into Fill's instructions, so a large job with no agreement cannot be rated low risk. Generated text is labelled as an AI-generated draft, and a separate check blocks any currency amount that is not in the contract or thread.
+
+4. **Verify** (after Fill). The generated message is checked claim by claim against two named documents, the contract and the thread. A contradicted claim blocks Copy and shows the evidence. A not-stated claim shows a note and needs one acknowledgement. Supported claims are counted.
+
+**How they work together:** Extract locates, Decide judges, Fill drafts, Verify checks the draft.
+
+**Reliability:** bounded retries with the same Idempotency-Key, per-item retry, partial results kept, concurrency of 3, input caps, an approximate daily cap per IP and overall on live calls, and clear messages for credit, rate-limit and server errors. The API key stays server-side in a Cloudflare Pages Function.
+
+**Evidence:** a live eval of 23 golden cases (22 pass; the one failure is listed openly in [docs/eval-results.md](docs/eval-results.md)), 91 unit tests, and measured credit cost per sample in [docs/credit-usage.md](docs/credit-usage.md).
+
+*Still to come in the README: the endpoint summary table, how uncertain results are handled in detail, honest limitations, and credits. Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).*
 
 ## Deploy (Cloudflare Pages)
 
