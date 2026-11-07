@@ -220,6 +220,32 @@
       "expect": {
         "priceNull": true
       }
+    },
+    {
+      "id": "fill-risk-large-no-agreement",
+      "kind": "fill",
+      "thread": "Client: Can you add online ordering so customers can order cakes?\nDev: Online ordering is outside the current scope. I can send a quote if you like.\nClient: Hmm, let me think about it.",
+      "request": "add online ordering so customers can order cakes",
+      "effortScore": 3,
+      "agreed": false,
+      "expect": {
+        "riskNot": [
+          "Low"
+        ]
+      }
+    },
+    {
+      "id": "fill-risk-critical-ish-no-agreement-medium",
+      "kind": "fill",
+      "thread": "Client: Please add a blog section for our recipes.\nDev: A blog is outside the agreed scope; I can quote it.",
+      "request": "add a blog section for our recipes",
+      "effortScore": 2,
+      "agreed": false,
+      "expect": {
+        "riskNot": [
+          "Low"
+        ]
+      }
     }
   ]
 }

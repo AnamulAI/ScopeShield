@@ -118,7 +118,7 @@ export function buildFillRequest(contract: string, thread: string, request: stri
           type: "generate",
           format: "text",
           max_tokens: 60,
-          description: `Exactly one imperative sentence addressed to the freelancer (use "you" or no subject), specific to ${r}, in the form: "Send ${client} a quote for ${r.slice(1, -1)} and wait for a written yes before starting." No third person, and no vague phrases such as "the price will be confirmed".`,
+          description: `Exactly one imperative sentence addressed to the freelancer (use "you" or no subject), specific to ${r}, in the form: 'Send ${client} a quote for "${r.slice(1, -1)}" and wait for a written yes before starting.' No third person, and no vague phrases such as "the price will be confirmed".`,
         },
       },
     },

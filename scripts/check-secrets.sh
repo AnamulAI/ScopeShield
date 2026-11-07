@@ -18,7 +18,7 @@ for f in $files; do
 done
 
 # Secret-looking content. Pattern list kept generic; no real key is ever stored here.
-pat='(Bearer[[:space:]]+[A-Za-z0-9_\-\.]{20,}|CLOCKED_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_.-]{12,}|(sk|pk|ck|clk)[-_][A-Za-z0-9_\-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)'
+pat='(Bearer[[:space:]]+[A-Za-z0-9_\-\.]{20,}|CLOCKED_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_.-]{12,}|(^|[^A-Za-z0-9])(sk|pk|ck|clk)[-_][A-Za-z0-9_\-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)'
 for f in $files; do
   [ -f "$f" ] || continue
   [ "$f" = "scripts/check-secrets.sh" ] && continue

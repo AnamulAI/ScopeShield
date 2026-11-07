@@ -43,7 +43,7 @@ async function runCase(c: any): Promise<Result> {
       return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `${requests.length} item(s): ${requests.map((r) => `"${r.text}"`).join(", ")}` };
     }
     // fill
-    const co = await fillChangeOrder(client, { contract: golden.contract, thread: c.thread, clientName: "Client" }, c.request);
+    const co = await fillChangeOrder(client, { contract: golden.contract, thread: c.thread, clientName: "Client" }, c.request, false, { effortScore: c.effortScore ?? 2, agreed: c.agreed ?? false });
     track("fill", co.usage);
     const fails: string[] = [];
     const gen = `${co.message ?? ""}\n${co.nextStep ?? ""}`;
@@ -52,6 +52,18 @@ async function runCase(c: any): Promise<Result> {
     for (const w of e.mustNotMention ?? []) if ((co.message ?? "").toLowerCase().includes(w)) fails.push(`message mentions other request "${w}"`);
     if (e.priceNull && co.priceMentioned !== null) fails.push(`price_mentioned should be null, got "${co.priceMentioned}"`);
     if (e.priceContains && !(co.priceMentioned ?? "").includes(e.priceContains)) fails.push(`price_mentioned "${co.priceMentioned}" lacks ${e.priceContains}`);
+    if (e.riskNot && co.unpaidRisk && e.riskNot.includes(co.unpaidRisk)) fails.push(`unpaid_risk is ${co.unpaidRisk} (effort ${c.effortScore ?? 2}, agreement ${c.agreed ?? false})`);
+    // Rubric checks applied to every Fill case.
+    const msg = co.message ?? "";
+    const words = msg.trim().split(/\s+/).filter(Boolean).length;
+    if (words > 70) fails.push(`message has ${words} words (max 70)`);
+    if (!/outside|beyond|not (part of|included|covered)|isn.t (part of|included|covered)|separate/i.test(msg)) fails.push("message does not say the request is outside the agreement");
+    if (!/confirm|let me know|proceed|go ahead|approv|agree to|before (any |I |we )?(work|start|begin)/i.test(msg)) fails.push("message does not ask the client to confirm before work starts");
+    if (/(delivered?|ready|done|finished|completed?) (by|on|within|in) /i.test(msg) || /\b(tomorrow|next week|by (monday|tuesday|wednesday|thursday|friday))\b/i.test(msg)) fails.push("message may promise a delivery date");
+    if (/\bI can certainly\b/i.test(msg)) fails.push('message says "I can certainly"');
+    const ns = co.nextStep ?? "";
+    if (/^(the|i|we|he|she|they|it)\b/i.test(ns.trim())) fails.push(`next step is not imperative: "${ns}"`);
+    if (/will be confirmed/i.test(ns)) fails.push("next step is vague (\"will be confirmed\")");
     const invented = inventedAmounts(gen, `${golden.contract}\n${c.thread}`);
     if (invented.length) fails.push(`invented amount(s): ${invented.join(", ")}`);
     return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `price=${co.priceMentioned ?? "null"}; msg="${(co.message ?? "").slice(0, 90)}…"` };

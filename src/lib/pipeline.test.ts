@@ -210,7 +210,7 @@ describe("Fill rubrics and Decide context", () => {
     for (const w of ["at most 70 words", "first person", "outside the current agreement", "quoted separately", "ONLY if one appears", "confirm before any work starts", "never promise delivery dates".replace("never", "Never")]) expect(m).toContain(w);
     const n = withCtx.fields.next_step.description as string;
     expect(n).toContain("imperative sentence");
-    expect(n).toContain("Send Maya a quote for add a blog and wait for a written yes before starting.");
+    expect(n).toContain('Send Maya a quote for "add a blog" and wait for a written yes before starting.');
     expect(n).toContain("the price will be confirmed");
   });
   it("builds a price extract anchored to the request", () => {
