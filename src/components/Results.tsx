@@ -79,7 +79,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
           <div role="alert" className="mt-3 rounded-lg border border-change/30 bg-change-bg/70 px-3 py-2 text-sm text-change">
             <b>{described.title}</b> {described.hint}
             {finished && failures > 0 && <span> {failures} step{failures === 1 ? "" : "s"} failed; everything else is kept, and each failed item has its own Retry.</span>}
-            {described.credits && onSwitchDemo && (
+            {described.demo && onSwitchDemo && (
               <button onClick={onSwitchDemo} className="ml-2 rounded-md bg-navy px-3 py-1 text-xs font-semibold text-white">Switch to Demo mode</button>
             )}
           </div>

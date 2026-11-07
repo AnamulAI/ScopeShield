@@ -1,7 +1,7 @@
 // Typed Clocked client: concurrency cap, bounded retries with the SAME Idempotency-Key, exponential backoff + jitter.
 import type { ClockedUsage } from "./clocked-types";
 
-export type ErrorKind = "bad_request" | "auth" | "credits" | "conflict" | "rate_limit" | "server" | "timeout" | "network";
+export type ErrorKind = "bad_request" | "auth" | "credits" | "conflict" | "rate_limit" | "server" | "timeout" | "network" | "limit";
 
 export class ClockedError extends Error {
   constructor(public kind: ErrorKind, message: string, public status?: number) {
@@ -86,12 +86,14 @@ export function createClockedClient(opts: ClientOptions = {}) {
       }
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
+        let limited = false;
         try {
-          const j = (await res.json()) as { error?: string | { message?: string }; message?: string };
+          const j = (await res.json()) as { error?: string | { message?: string }; message?: string; code?: string };
+          limited = j?.code === "limit_reached" || j?.code === "limit_unavailable"; // this site's own daily limit: never retried
           if (j?.error) msg = typeof j.error === "string" ? j.error : (j.error.message ?? msg);
           else if (j?.message) msg = j.message;
         } catch { /* body not JSON */ }
-        const err = new ClockedError(classify(res.status), msg, res.status);
+        const err = new ClockedError(limited ? "limit" : classify(res.status), msg, res.status);
         (err as ClockedError & { retryAfterMs?: number }).retryAfterMs = Number(res.headers.get("retry-after")) * 1000 || undefined;
         throw err;
       }

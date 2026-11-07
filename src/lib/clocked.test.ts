@@ -65,6 +65,12 @@ describe("call", () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     }
   });
+  it("treats the site's own daily limit as final: kind limit, no retry", async () => {
+    const limited = () => new Response(JSON.stringify({ error: "Live mode limit reached today, please use Demo mode.", code: "limit_reached" }), { status: 429 });
+    const { client, fetchImpl } = make([limited()]);
+    await expect(client.call("decide", {})).rejects.toMatchObject({ kind: "limit", status: 429 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
   it("never runs more than 3 requests at once", async () => {
     let active = 0, peak = 0;
     const fetchImpl = (async () => {

@@ -59,14 +59,19 @@ describe("scopeHealth", () => {
 describe("describeError", () => {
   it("gives a credits message with the demo hint and flags it", () => {
     const d = describeError("credits");
-    expect(d.credits).toBe(true);
+    expect(d.demo).toBe(true);
     expect(d.hint).toContain("demo");
+  });
+  it("explains the daily live-mode limit and offers Demo mode", () => {
+    const d = describeError("limit");
+    expect(d.title).toContain("Live mode limit reached today");
+    expect(d.demo).toBe(true);
   });
   it("tells the user what to change for input errors", () => {
     expect(describeError("bad_request", "text too long").hint).toContain("Shorten");
   });
   it("covers every class and picks the worst", () => {
-    for (const k of ["credits", "auth", "bad_request", "rate_limit", "conflict", "timeout", "server", "network", undefined] as const) expect(describeError(k).title.length).toBeGreaterThan(5);
+    for (const k of ["limit", "credits", "auth", "bad_request", "rate_limit", "conflict", "timeout", "server", "network", undefined] as const) expect(describeError(k).title.length).toBeGreaterThan(5);
     expect(worstKind(["server", "credits", undefined])).toBe("credits");
     expect(worstKind([undefined])).toBeUndefined();
   });

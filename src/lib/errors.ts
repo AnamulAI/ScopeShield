@@ -1,12 +1,15 @@
 // Friendly, specific text for every failure class. The call layer has already retried 429/5xx/409/timeouts within a bounded budget.
 import type { ErrorKind } from "./clocked";
 
-export interface Described { title: string; hint: string; credits?: boolean }
+/** `demo: true` = offer the Demo mode switch. */
+export interface Described { title: string; hint: string; demo?: boolean }
 
 export function describeError(kind: ErrorKind | undefined, detail?: string): Described {
   switch (kind) {
     case "credits":
-      return { title: "Clocked credits are used up.", hint: "Results so far are kept. You can explore the recorded demo without credits.", credits: true };
+      return { title: "Clocked credits are used up.", hint: "Results so far are kept. You can explore the recorded demo without credits.", demo: true };
+    case "limit":
+      return { title: "Live mode limit reached today.", hint: "To keep this free demo affordable, live runs are capped per day. Please use Demo mode, or run the app yourself with your own key (see the README).", demo: true };
     case "bad_request":
       return { title: "The service rejected this input.", hint: `Shorten or simplify the text (contract up to 6,000 characters, thread up to 12,000, up to 30 client messages) and retry.${detail ? ` Detail: ${detail}` : ""}` };
     case "auth":
@@ -26,6 +29,6 @@ export function describeError(kind: ErrorKind | undefined, detail?: string): Des
   }
 }
 
-const SEVERITY: ErrorKind[] = ["credits", "auth", "bad_request", "rate_limit", "conflict", "timeout", "server", "network"];
+const SEVERITY: ErrorKind[] = ["limit", "credits", "auth", "bad_request", "rate_limit", "conflict", "timeout", "server", "network"];
 /** The most important failure class among several, for the page-level banner. */
 export const worstKind = (kinds: Array<ErrorKind | undefined>): ErrorKind | undefined => SEVERITY.find((k) => kinds.includes(k));
