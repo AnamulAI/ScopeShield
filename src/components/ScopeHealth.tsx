@@ -14,11 +14,13 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
   const validRate = rate !== null && Number.isFinite(rate) && rate > 0 ? rate : null;
   const confirmedMoney = formatMoney(h.confirmedUnpaid, validRate);
   const possibleMoney = formatMoney(h.possibleUnpaid, validRate);
-  const hours = formatHours(h.confirmedUnpaid);
+  const hc = h.confirmedUnpaid;
+  // Open-ended bands give a minimum only, shown as "58+ h"; ranges as "≈ 18–30 h".
+  const headline = items.length === 0 ? "—" : hc.items === 0 ? "None" : hc.max === null ? `${hc.min}+ h` : `≈ ${formatHours(hc)}`;
 
   return (
     <section aria-label="Scope health" className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-      <div>
+      <div className="order-2 lg:order-1">
         <p className="t-eyebrow text-muted">Where the requests landed</p>
         {active > 0 && (
           <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-paper-deep" role="img"
@@ -28,7 +30,7 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
         )}
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {QUEUE_ORDER.map((q) => (
-            <li key={q}>
+            <li key={q} className="last:col-span-2 sm:last:col-span-1">
               <a href={`#queue-${q}`} className={`block rounded-xl border-l-4 px-3 py-3 transition hover:-translate-y-0.5 hover:shadow-card ${QUEUES[q].bg} ${QUEUES[q].border}`}
                 aria-label={`${QUEUES[q].label}: ${h.counts[q]}. Jump to this queue`}>
                 <span className={`font-display text-[2rem] leading-none tnum ${QUEUES[q].text}`}>{h.counts[q]}</span>
@@ -38,26 +40,29 @@ export function ScopeHealth({ items }: { items: RequestItem[] }) {
           ))}
         </ul>
         <p className="mt-3 text-xs text-muted">{active} active request{active === 1 ? "" : "s"}{h.counts.withdrawn ? ` · ${h.counts.withdrawn} withdrawn (not counted)` : ""}{h.uncounted ? ` · ${h.uncounted} not counted yet` : ""}</p>
+
+        <div className="mt-6 rounded-xl bg-paper px-4 py-4">
+          <label className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink">
+            Optional hourly rate
+            <input inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} placeholder="e.g. 40"
+              className="w-28 rounded-lg border border-line bg-card px-3 py-1.5 text-sm text-ink placeholder:text-muted/70" aria-describedby="rate-note" />
+          </label>
+          <p id="rate-note" className="mt-1.5 text-xs text-muted">Money is shown only if you type a rate (no currency assumed).</p>
+          <p className="mt-3 text-xs leading-5 text-muted">
+            <b className="text-ink">Rough estimate, confirm with your own judgement.</b> Hours come from the model’s expected effort score per request (under 1 h, 2–6 h, 16–24 h, or 40 h+), summed. They are not a quote. Withdrawn and in-scope items are never counted.
+          </p>
+        </div>
       </div>
 
-      <div className="rounded-2xl bg-navy p-5 text-paper shadow-lift sm:p-6">
+      <div className="order-1 rounded-2xl bg-navy p-5 text-paper shadow-lift sm:p-6 lg:order-2 lg:self-start">
         <p className="t-eyebrow text-paper/75">Scope health · unpaid work found</p>
-        <p className="mt-2 font-display text-[2.5rem] leading-none tnum">{hours === "none" ? "None" : `≈ ${hours}`}</p>
-        <p className="mt-2 text-sm text-paper/85">across {h.confirmedUnpaid.items} request{h.confirmedUnpaid.items === 1 ? "" : "s"} needing a change order</p>
+        <p className="mt-3 font-display text-[3rem] leading-none tnum">{headline}</p>
+        <p className="mt-3 text-sm text-paper/85">{items.length === 0 ? "No requests analysed yet. " : ""}{hc.max === null && hc.items > 0 ? "at least, " : ""}across {hc.items} request{hc.items === 1 ? "" : "s"} needing a change order</p>
         {confirmedMoney && <p className="mt-1 text-sm font-semibold">≈ {confirmedMoney} at your rate</p>}
         <div className="mt-4 border-t border-paper/20 pt-4 text-sm">
           <p><span className="text-paper/75">Possibly unpaid:</span> <b>{formatHours(h.possibleUnpaid)}</b> <span className="text-paper/75">in {h.possibleUnpaid.items} unresolved Ask me item{h.possibleUnpaid.items === 1 ? "" : "s"}</span></p>
           {possibleMoney && <p className="mt-1 text-xs text-paper/85">≈ {possibleMoney} at your rate</p>}
         </div>
-        <label className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-paper/85">
-          Optional hourly rate
-          <input inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} placeholder="e.g. 40"
-            className="w-24 rounded-lg border border-paper/30 bg-paper px-2.5 py-1.5 text-sm text-ink placeholder:text-muted/70" aria-describedby="rate-note" />
-        </label>
-        <p id="rate-note" className="mt-1.5 text-xs text-paper/70">Money is shown only if you type a rate (no currency assumed).</p>
-        <p className="mt-4 text-xs leading-5 text-paper/80">
-          <b className="text-paper">Rough estimate, confirm with your own judgement.</b> Hours come from the model’s expected effort score per request (under 1 h, 2–6 h, 16–24 h, or 40 h+), summed. They are not a quote. Withdrawn and in-scope items are never counted.
-        </p>
       </div>
     </section>
   );

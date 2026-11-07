@@ -1,17 +1,18 @@
 <!doctype html><meta charset="utf-8"><style>
+@font-face{font-family:"Fraunces Variable";src:url("file:///Users/anamdev/ScopeShield/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2") format("woff2");font-weight:100 900}
+@font-face{font-family:"Figtree Variable";src:url("file:///Users/anamdev/ScopeShield/node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2") format("woff2");font-weight:300 900}
 html,body{margin:0;width:1200px;height:630px}
-body{background:#f4efe4;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;color:#1b2233;position:relative;overflow:hidden}
-.band{position:absolute;left:0;top:0;bottom:0;width:18px;background:#1b2a41}
-.wrap{position:absolute;left:90px;top:96px;right:80px}
-.logo{display:flex;align-items:center;gap:28px}
-h1{font-size:104px;margin:0;letter-spacing:-2px;font-weight:600}
-p.t{font-size:44px;line-height:1.25;margin:36px 0 0;max-width:900px;color:#1b2233}
-.chips{position:absolute;left:90px;bottom:70px;display:flex;gap:16px;font-family:ui-sans-serif,system-ui,sans-serif;font-size:26px;font-weight:600}
-.c{padding:12px 22px;border-radius:12px}
+body{background:#f5f0e6;font-family:"Figtree Variable",sans-serif;color:#1a2133;position:relative;overflow:hidden;
+ background-image:radial-gradient(700px 360px at 95% -10%,#fffdf8 0%,transparent 65%),radial-gradient(600px 300px at -5% 10%,#ece5d6 0%,transparent 60%)}
+.brand{position:absolute;left:84px;top:64px;display:flex;align-items:center;gap:18px;font-family:"Fraunces Variable",serif;font-size:34px;font-variation-settings:"opsz" 48}
+h1{position:absolute;left:84px;top:170px;width:900px;margin:0;font-family:"Fraunces Variable",serif;font-weight:560;font-size:92px;line-height:1.04;letter-spacing:-2.5px;font-variation-settings:"opsz" 96}
+p.t{position:absolute;left:86px;top:400px;width:860px;margin:0;font-size:31px;line-height:1.38;color:#3a4256}
+.chips{position:absolute;left:84px;bottom:52px;display:flex;gap:14px;font-size:22px;font-weight:650}
+.c{padding:10px 20px;border-radius:12px;border-left:5px solid}
+.p{position:absolute;right:84px;top:78px;font-size:15px;letter-spacing:.12em;text-transform:uppercase;font-weight:650;color:#586073}
 </style>
-<div class="band"></div>
-<div class="wrap">
- <div class="logo"><svg width="96" height="104" viewBox="0 0 26 28"><path d="M13 1.5 2.5 5v8.2c0 6.2 4.3 10.9 10.5 13.3 6.2-2.4 10.5-7.1 10.5-13.3V5L13 1.5Z" fill="#1b2a41"/><path d="m8.2 13.8 3.6 3.6 6.2-7" fill="none" stroke="#f4efe4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><h1>ScopeShield</h1></div>
- <p class="t">Catch scope creep before it becomes unpaid work. A client saying “let me think about it” is not a yes.</p>
-</div>
-<div class="chips"><span class="c" style="background:#f9e5d6;color:#a8420d">Needs change order</span><span class="c" style="background:#ebe5f7;color:#5f43a8">Ask me</span><span class="c" style="background:#dfeee4;color:#2f6e4c">In scope</span><span class="c" style="background:#d9ecf3;color:#1c6783">Agreed extra</span><span class="c" style="background:#e9e8e6;color:#6e717b">Withdrawn</span></div>
+<div class="brand"><svg width="44" height="47" viewBox="0 0 26 28"><path d="M13 1.5 2.5 5v8.2c0 6.2 4.3 10.9 10.5 13.3 6.2-2.4 10.5-7.1 10.5-13.3V5L13 1.5Z" fill="#1b2a41"/><path d="m8.2 13.8 3.6 3.6 6.2-7" fill="none" stroke="#f5f0e6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>ScopeShield</div>
+<h1>Catch scope creep before it becomes unpaid work.</h1>
+<p class="t">“Let me think about it” is not a yes. ScopeShield counts only what the client clearly agreed to.</p>
+<div class="chips"><span class="c" style="background:#fbe8db;color:#a23f0b;border-color:#a23f0b">Needs change order</span><span class="c" style="background:#eee9f9;color:#5a3fa5;border-color:#5a3fa5">Ask me</span><span class="c" style="background:#dcedf4;color:#17607c;border-color:#17607c">Agreed extra</span><span class="c" style="background:#e0f0e6;color:#25664a;border-color:#25664a">In scope</span><span class="c" style="background:#ebeae7;color:#5b5e66;border-color:#5b5e66">Withdrawn</span></div>
+<div class="p">Powered by Clocked</div>

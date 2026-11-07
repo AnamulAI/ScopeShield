@@ -65,6 +65,10 @@ Design decision: the application owns the thresholds, not the model. That made t
 
 *Still to come in the README: an endpoint summary table, screenshots, how to run locally in five commands, and credits for third-party libraries. Built by Mohammad Anamul Hoque (AnamDev) with AI-assisted development (Claude Code).*
 
+## Credits
+
+Fonts: [Fraunces](https://github.com/undercasetype/Fraunces) and [Figtree](https://github.com/erikdkennedy/figtree), both under the SIL Open Font License, self-hosted through the `@fontsource-variable` packages. UI: React, Vite and Tailwind CSS. Powered by the Clocked API. The full list of credits comes with the rest of the README.
+
 ## Deploy (Cloudflare Pages)
 
 The app is a static Vite build plus Pages Functions (`functions/api/clocked/[endpoint].ts`, the proxy that holds the API key). You need a Clocked API key and a Cloudflare account.

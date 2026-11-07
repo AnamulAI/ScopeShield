@@ -29,7 +29,9 @@ export default function App() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [running, setRunning] = useState(false);
   const [demoIndex, setDemoIndex] = useState<DemoIndexEntry[] | null>(null);
-  const [demoId, setDemoId] = useState("bakery");
+  // Optional deep link: /#sample=brand-studio&open=1 (selects a recorded sample; open=1 expands its change orders).
+  const hashParams = useMemo(() => new URLSearchParams(window.location.hash.slice(1)), []);
+  const [demoId, setDemoId] = useState(hashParams.get("sample") ?? "bakery");
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [demoError, setDemoError] = useState<string | null>(null);
   const live = useRef<Analysis | null>(null);
@@ -180,7 +182,7 @@ export default function App() {
         {analysis && (
           <Results analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
             onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify}
-            recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")}
+            recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")} openAll={hashParams.get("open") === "1"}
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}
       </main>

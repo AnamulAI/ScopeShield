@@ -78,7 +78,7 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
             <>
               <p className="t-eyebrow text-ask">One question for you</p>
               <p className="font-display mt-1.5 text-[1.1875rem] leading-snug" id={`q-${item.id}`}>{askQuestion(item.text, item.route.ask)}</p>
-              <div role="group" aria-labelledby={`q-${item.id}`} className="mt-4 grid gap-2.5 sm:grid-cols-3">
+              <div role="group" aria-labelledby={`q-${item.id}`} className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2.5">
                 <button onClick={() => onDecide("in_scope")} className="rounded-xl border border-scope/40 bg-card px-4 py-3 text-left shadow-card transition hover:border-scope hover:shadow-lift">
                   <span className="block text-sm font-semibold text-scope">In scope</span><span className="block text-xs text-muted">It was part of the deal</span>
                 </button>

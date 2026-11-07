@@ -17,13 +17,15 @@ interface Props {
   recorded?: boolean; onSwitchDemo?: () => void;
   /** Demo only: shown when the current sample has no Ask me item. */
   askHint?: { onOpen: () => void };
+  /** Start with every prepared change order expanded (used by deep links and screenshots). */
+  openAll?: boolean;
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, recorded, onSwitchDemo, askHint }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, recorded, onSwitchDemo, askHint, openAll }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
-  const [openCO, setOpenCO] = useState<Set<string>>(new Set());
+  const [openCO, setOpenCO] = useState<Set<string>>(() => new Set(openAll ? analysis.items.filter((i) => i.changeOrder).map((i) => i.id) : []));
   const setCoOpen = (id: string, v: boolean) => setOpenCO((prev) => { const n = new Set(prev); if (v) n.add(id); else n.delete(id); return n; });
 
   const groups = useMemo(() => {
