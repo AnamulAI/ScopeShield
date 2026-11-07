@@ -1,0 +1,8 @@
+{
+  "id": "fitness-app",
+  "title": "Fitness app MVP",
+  "blurb": "Freelance mobile app: a written approval with a price, a vague dark-mode ask and a \"quick question\" that is new scope.",
+  "clientName": "Kasper",
+  "contract": "Project: FitTrack MVP, a fitness tracking app for iOS and Android (React Native). Fixed feature list: 1) email sign-up and login, 2) workout log (add, edit, delete workouts), 3) weekly progress chart, 4) user profile page. Fixed price: $6,000, delivery in 6 weeks. Anything not on the feature list is out of scope and quoted separately.",
+  "thread": "Kasper: hey Mina, tested the build on my phone, login works 👍\nMina: great to hear!\nKasper: can we get push notifications when someone misses a workout day? would be really nice for retention\nMina: Push notifications aren't on the feature list, so that would be extra. Want me to estimate?\nKasper: lol not now, lets focus on launch\nKasper: what about dark mode? my testers keep asking\nMina: Dark mode could be small, depends on how the screens are built. I'll look at it\nKasper: cool\nKasper: we'll also need a simple admin dashboard so my coach can see user stats\nMina: That's separate work. Roughly $900 for a basic read-only dashboard with a user list and weekly stats\nKasper: ok approved, $900 is fine. please go ahead and build it\nMina: Perfect, I'll add it to the plan\nKasper: quick question - could the app also let users share their weekly chart to instagram? shouldnt be hard right?\nMina: That needs a share-image feature, not on the list. Let me check the effort\nKasper: ok\nMina: Next build comes Monday\nKasper: 👍"
+}
