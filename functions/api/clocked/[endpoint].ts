@@ -30,12 +30,16 @@ const secondsToUtcMidnight = (now: Date) => Math.max(60, Math.ceil((Date.UTC(now
 
 export type LimitResult = { ok: true } | { ok: false; reason: "ip" | "global" | "kv_write" };
 
+/** Sampled counting: write with probability 1/SAMPLE_EVERY and add SAMPLE_EVERY, so the expected count is right with ~1/5 of the KV writes. */
+export const SAMPLE_EVERY = 5;
+
 /**
- * Daily caps via KV (approximate: KV is not atomic, so a burst can overshoot slightly).
+ * Daily caps via KV. Counting is approximate by design: counters are sampled (above) and KV is not atomic.
  * - KV READ error: fail open (the request is allowed).
- * - KV WRITE error: fail closed (we cannot count, so we do not allow unbounded use; this also covers an exhausted KV write quota).
+ * - KV WRITE error (only attempted on sampled calls): fail closed, so we never allow unbounded use; this also covers an exhausted write quota.
+ * `random` is injectable for tests.
  */
-export async function checkLimits(kv: KVNamespace, ip: string, now = new Date()): Promise<LimitResult> {
+export async function checkLimits(kv: KVNamespace, ip: string, now = new Date(), random: () => number = Math.random): Promise<LimitResult> {
   const d = day(now);
   const ipKey = `rl:ip:${d}:${ip}`;
   const globalKey = `rl:global:${d}`;
@@ -47,11 +51,13 @@ export async function checkLimits(kv: KVNamespace, ip: string, now = new Date())
   }
   if (ipCount >= IP_DAILY_CAP) return { ok: false, reason: "ip" };
   if (globalCount >= GLOBAL_DAILY_CAP) return { ok: false, reason: "global" };
-  try {
-    const opts = { expirationTtl: 60 * 60 * 30 };
-    await Promise.all([kv.put(ipKey, String(ipCount + 1), opts), kv.put(globalKey, String(globalCount + 1), opts)]);
-  } catch {
-    return { ok: false, reason: "kv_write" };
+  if (random() < 1 / SAMPLE_EVERY) {
+    try {
+      const opts = { expirationTtl: 60 * 60 * 30 };
+      await Promise.all([kv.put(ipKey, String(ipCount + SAMPLE_EVERY), opts), kv.put(globalKey, String(globalCount + SAMPLE_EVERY), opts)]);
+    } catch {
+      return { ok: false, reason: "kv_write" };
+    }
   }
   return { ok: true };
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkLimits, GLOBAL_DAILY_CAP, IP_DAILY_CAP, onRequestPost, originAllowed } from "./[endpoint]";
+import { checkLimits, GLOBAL_DAILY_CAP, IP_DAILY_CAP, onRequestPost, originAllowed, SAMPLE_EVERY } from "./[endpoint]";
 
 class FakeKV {
   store = new Map<string, string>();
@@ -25,31 +25,58 @@ describe("originAllowed", () => {
   });
 });
 
-describe("checkLimits", () => {
-  it("counts per IP and allows up to the cap, then refuses", async () => {
+describe("checkLimits (sampled counting)", () => {
+  const always = () => 0; // always sampled
+  const never = () => 0.99; // never sampled
+  it("writes only on sampled calls, adding SAMPLE_EVERY to both counters", async () => {
     const k = kv();
-    for (let i = 0; i < IP_DAILY_CAP; i++) expect((await checkLimits(k, "1.1.1.1", T)).ok).toBe(true);
-    expect(await checkLimits(k, "1.1.1.1", T)).toEqual({ ok: false, reason: "ip" });
-    expect((await checkLimits(k, "2.2.2.2", T)).ok).toBe(true); // other visitors unaffected
+    for (let i = 0; i < 10; i++) await checkLimits(k, "1.1.1.1", T, never);
+    expect(k.puts).toBe(0);
+    await checkLimits(k, "1.1.1.1", T, always);
+    expect(k.puts).toBe(2);
+    expect(k.store.get("rl:ip:2026-11-08:1.1.1.1")).toBe(String(SAMPLE_EVERY));
+    expect(k.store.get("rl:global:2026-11-08")).toBe(String(SAMPLE_EVERY));
+  });
+  it("samples with probability 1/5: the boundary is random() < 0.2", async () => {
+    const k = kv();
+    await checkLimits(k, "a", T, () => 0.2);
+    expect(k.puts).toBe(0);
+    await checkLimits(k, "a", T, () => 0.1999);
+    expect(k.puts).toBe(2);
+  });
+  it("is statistically about 1 write per 5 calls with a real random source", async () => {
+    const k = kv();
+    for (let i = 0; i < 1000; i++) await checkLimits(k, "ip" + i, T); // distinct IPs so no cap is hit
+    expect(k.puts / 2).toBeGreaterThan(140); // expected 200 sampled calls
+    expect(k.puts / 2).toBeLessThan(260);
+  });
+  it("refuses once the per-IP counter reaches the cap; other visitors are unaffected", async () => {
+    const k = kv();
+    for (let i = 0; i < IP_DAILY_CAP / SAMPLE_EVERY; i++) expect((await checkLimits(k, "1.1.1.1", T, always)).ok).toBe(true);
+    expect(await checkLimits(k, "1.1.1.1", T, never)).toEqual({ ok: false, reason: "ip" });
+    expect((await checkLimits(k, "2.2.2.2", T, never)).ok).toBe(true);
   });
   it("enforces the global daily cap across IPs", async () => {
     const k = kv();
     k.store.set("rl:global:2026-11-08", String(GLOBAL_DAILY_CAP));
-    expect(await checkLimits(k, "3.3.3.3", T)).toEqual({ ok: false, reason: "global" });
+    expect(await checkLimits(k, "3.3.3.3", T, never)).toEqual({ ok: false, reason: "global" });
   });
   it("resets on the next UTC day", async () => {
     const k = kv();
     k.store.set("rl:ip:2026-11-08:1.1.1.1", String(IP_DAILY_CAP));
-    expect((await checkLimits(k, "1.1.1.1", T)).ok).toBe(false);
-    expect((await checkLimits(k, "1.1.1.1", new Date("2026-11-09T00:00:01Z"))).ok).toBe(true);
+    expect((await checkLimits(k, "1.1.1.1", T, never)).ok).toBe(false);
+    expect((await checkLimits(k, "1.1.1.1", new Date("2026-11-09T00:00:01Z"), never)).ok).toBe(true);
   });
-  it("fails open when KV READS fail, but closed when WRITES fail", async () => {
+  it("fails open when KV READS fail", async () => {
     const r = kv();
     r.failGet = true;
-    expect((await checkLimits(r, "1.1.1.1", T)).ok).toBe(true);
+    expect((await checkLimits(r, "1.1.1.1", T, always)).ok).toBe(true);
+  });
+  it("fails closed when a sampled WRITE fails, but unsampled calls do not touch KV writes", async () => {
     const w = kv();
     w.failPut = true;
-    expect(await checkLimits(w, "1.1.1.1", T)).toEqual({ ok: false, reason: "kv_write" });
+    expect(await checkLimits(w, "1.1.1.1", T, always)).toEqual({ ok: false, reason: "kv_write" });
+    expect((await checkLimits(w, "1.1.1.1", T, never)).ok).toBe(true);
   });
 });
 
