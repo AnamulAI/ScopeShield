@@ -139,7 +139,7 @@ Credits vary from run to run: the Fitness analysis alone measured 39 in the live
 
 Extract's list of requests can miss an item in a long thread, so ScopeShield extracts per client message instead. Tightening the description to ignore confirmations and thanks then made it miss plain requests like "Can you change the banner colour?". A full-thread run exposed it; we added a golden case and reworded the field.
 
-Probabilities were more useful than labels. A WhatsApp button request scored about 0.55 on its own but was judged inside the scope in the full thread, because the developer had said there was no extra charge. We updated the expectation instead of tuning the prompt to hit a number, and wrote the case up in [docs/eval-notes.md](docs/eval-notes.md).
+Probabilities were more useful than labels. A WhatsApp button request scored about 0.55 on its own but was judged inside the scope in the full thread, because the developer had said there was no extra charge. We relaxed that golden expectation (from the ASK ME band to outside <= 0.75) after seeing the real behaviour, and did not tune a prompt to hit a number. The case is written up in [docs/eval-notes.md](docs/eval-notes.md).
 
 Fill needed anchoring. An extract over the whole thread picked the wrong request, so every Fill call is now tied to the one request being drafted. A Fill field then returned "no extra cost" as a price; we clarified the field description and added a golden case, and a separate check blocks any currency amount in generated text that is not in the contract or thread. Decide's single-choice kind tag sometimes disagreed with its outside-contract probability, so the tag is only a label and never the verdict.
 
