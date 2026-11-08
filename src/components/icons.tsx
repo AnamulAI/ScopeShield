@@ -57,3 +57,6 @@ export const ConflictIcon = (p: P) => (<svg {...base} {...p}><path d="M5 8h13" /
 export const PackIcon = (p: P) => (<svg {...base} {...p}><path d="M7 3.5h7l4 4V20.5H7V3.5Z" /><path d="M14 3.5v4h4" /><path d="M9.500 12h6M9.500 15.500h4" /></svg>);
 /** Ruler-like mark for the governing clause: a section sign. */
 export const ClauseIcon = (p: P) => (<svg {...base} {...p}><path d="M14.500 6.500a3 3 0 0 0-5.500 1.500c0 3.500 6 2.500 6 6.500a3 3 0 0 1-5.500 1.500" /><path d="M8 17.500a3 3 0 0 0 5.500 1.500" /></svg>);
+
+/** Angle brackets with a slash: a code snippet. */
+export const CodeIcon = (p: P) => (<svg {...base} {...p}><path d="m8.500 8-4 4 4 4" /><path d="m15.500 8 4 4-4 4" /><path d="m13.500 5.500-3 13" /></svg>);

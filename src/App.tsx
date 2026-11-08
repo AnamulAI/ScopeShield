@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClockedError, createClockedClient, type ClockedClient } from "./lib/clocked";
 import type { Snapshot } from "./lib/demo";
 import { analyze, applyWithheld, emptyUsage, includeMessage, runDecide, runFill, runMessage, runSupport, runVerify, withholdAgain, type Analysis } from "./lib/pipeline";
-import { runGuard, runProtect, runPromiseCheck } from "./lib/features";
+import { retryScriptCheck, runGuard, runProtect, runPromiseCheck } from "./lib/features";
 import { buildPackText } from "./lib/evidencePack";
 import { effectiveQueue, type Decision } from "./lib/routing";
 import { InputPanel, type Inputs } from "./components/InputPanel";
@@ -112,6 +112,7 @@ export default function App() {
   const retryGuard = () => direct(async (a, i) => { await runGuard(a, i, client, render); applyWithheld(a); });
   const retryPromise = () => direct((a, i) => runPromiseCheck(a, i, client, render));
   const makePack = (id: string) => direct(async (a, i) => { const it = a.items.find((x) => x.id === id); if (it) await runProtect(a, id, buildPackText(a, it, i), client, render); });
+  const retryScript = (i: number) => direct((a, inp) => retryScriptCheck(a, i, inp, client, render));
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
   const modeCard = (m: Mode, title: string, line: string, meta: string) => (
@@ -209,7 +210,7 @@ export default function App() {
 
         {analysis && (
           <Results key={mode === "demo" ? `demo-${demoId}` : "live"} analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
-            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify} onInclude={include} onWithhold={withhold} onRetryGuard={retryGuard} onRetryPromise={retryPromise} onMakePack={makePack}
+            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify} onInclude={include} onWithhold={withhold} onRetryGuard={retryGuard} onRetryPromise={retryPromise} onMakePack={makePack} onRetryScript={retryScript}
             recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")} openAll={hashParams.get("open") === "1"}
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}

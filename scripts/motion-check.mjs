@@ -302,6 +302,24 @@ for (const width of [1280, 375]) {
   ok((await ev(apiCalls)) === 0, "Safety and evidence features made no API calls in Demo mode");
   ok((await ev("document.documentElement.scrollWidth")) <= width, `${width}: no horizontal scroll with the Safety and evidence area open`);
 
+  // ===== M13 Inspect: client-supplied script (Demo: recorded, no API call) =====
+  await load(width, "#sample=pushy-client");
+  const row = await ev("(() => { const a = [...document.querySelectorAll('article')].find((x) => x.querySelector('p.font-display').textContent.includes('tracking snippet')); const r = a?.querySelector('[data-script-row]'); return r ? r.innerText : null; })()");
+  ok(row !== null && /client-supplied script/i.test(row) && row.includes("Harmful") && row.includes("model estimate"), `request card has the Client-supplied script row with an estimate ${JSON.stringify(row)?.slice(0, 120)}`);
+  ok(row !== null && row.includes("document.cookie"), "the evidence lines are shown in a code block");
+  ok(row !== null && row.includes("A benign result is not a safety guarantee. Read the code yourself."), "the caveat is shown");
+  ok((await ev("[...document.querySelectorAll('article')].filter((x) => x.querySelector('[data-script-row]')).length")) === 1, "only the request from the snippet's message carries the row");
+  await ev("[...document.querySelectorAll('article')].find((x) => x.querySelector('[data-script-row]')).querySelector('[data-script-row] button').click()"); await sleep(700);
+  ok((await ev("document.querySelectorAll('#chat-window mark[title*=\"code check pointed\"]').length")) >= 1 && (await ev("document.querySelectorAll('mark.sweep').length")) >= 1, "Show in thread highlights the flagged lines in the chat");
+  ok((await ev("[...document.querySelectorAll('[data-script-row]')].every((r) => r.querySelector('pre'))")) === true, "evidence in a small code block");
+  await ev("[...document.querySelectorAll('article')].find((x) => x.querySelector('[data-script-row]')).querySelector('button[aria-controls]').click()"); await sleep(400);
+  ok((await ev("[...document.querySelectorAll('article')].find((x) => x.querySelector('[data-script-row]')).innerText.includes('Ask Marcus for the source of the code snippet')")) === true, "the drafted next step asks for the source (Fill changed by Inspect)");
+  ok((await ev("document.querySelector('#scripts').innerText.includes('Harmful') && document.querySelector('#scripts').innerText.includes('message 15')")) === true, "Safety and evidence lists the snippet");
+  await load(width, "#sample=bakery");
+  ok((await ev("document.querySelectorAll('[data-script-row]').length")) === 0, "bakery: no script row");
+  ok((await ev("document.querySelector('#scripts').innerText.includes('No code snippet found in the client\u2019s messages, so no call was made.')")) === true, "bakery: no snippet found means no call was made");
+  ok((await ev(apiCalls)) === 0, "Inspect in Demo mode made no API calls");
+
   // header and footer
   ok((await ev("getComputedStyle(document.querySelector('header')).position")) === "sticky", "header is sticky");
   const links = await ev("[...document.querySelectorAll('header a, footer a')].map((a) => a.getAttribute('href'))");

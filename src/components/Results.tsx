@@ -19,7 +19,7 @@ interface Props {
   onRegenerate: (id: string) => void; onRetrySupport: (id: string) => void;
   onAck: (id: string) => void; onRetryVerify: (id: string) => void;
   onInclude: (messageIndex: number) => void; onWithhold: (messageIndex: number) => void; onRetryGuard: () => void;
-  onRetryPromise: () => void; onMakePack: (itemId: string) => void;
+  onRetryPromise: () => void; onMakePack: (itemId: string) => void; onRetryScript: (index: number) => void;
   recorded?: boolean; onSwitchDemo?: () => void;
   /** Demo only: shown when the current sample has no Ask me item. */
   askHint?: { onOpen: () => void };
@@ -27,7 +27,7 @@ interface Props {
   openAll?: boolean;
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, onInclude, onWithhold, onRetryGuard, onRetryPromise, onMakePack, recorded, onSwitchDemo, askHint, openAll }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, onInclude, onWithhold, onRetryGuard, onRetryPromise, onMakePack, onRetryScript, recorded, onSwitchDemo, askHint, openAll }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
@@ -60,7 +60,8 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const kinds = [...analysis.messageStates, ...analysis.items].map((x) => (x.status === "failed" ? x.errorKind : undefined))
     .concat(analysis.items.map((i) => (i.changeOrder?.status === "failed" ? i.changeOrder.errorKind : undefined)));
   const worst = worstKind(kinds);
-  const described = worst ? describeError(worst, undefined) : null;
+  const detail = worst ? [...analysis.messageStates, ...analysis.items].find((x) => x.status === "failed" && x.errorKind === worst)?.error : undefined;
+  const described = worst ? describeError(worst, detail) : null;
   const finished = !running;
   const speaker = (idx: number) => analysis.messages[idx]?.speaker ?? "";
 
@@ -85,7 +86,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
   const total = analysis.items.length;
   const counts = (q: Queue) => groups.get(q)?.length ?? 0;
   const card = (item: (typeof analysis.items)[number], i = 0) => (
-    <RequestCard key={item.id} revealIndex={Math.min(i, 5)} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
+    <RequestCard key={item.id} revealIndex={Math.min(i, 5)} scripts={(analysis.scripts ?? []).map((check, index) => ({ check, index })).filter((x) => x.check.messageIndex === item.messageIndex)} onRetryScript={onRetryScript} item={item} active={activeId?.split(":")[0] === item.id} speaker={speaker(item.messageIndex)}
       coOpen={openCO.has(item.id)} setCoOpen={(v) => setCoOpen(item.id, v)}
       onShow={(span) => focus(span, "card")} onRetry={() => onRetryItem(item.id)} onDecide={(d) => { if (d === "extra") setCoOpen(item.id, true); if (d === "in_scope") toggleExpanded("in_scope", true); onDecide(item.id, d); }}
       onPrepare={() => onPrepare(item.id)} onRegenerate={() => onRegenerate(item.id)} onRetrySupport={() => onRetrySupport(item.id)} onAck={() => onAck(item.id)} onRetryVerify={() => onRetryVerify(item.id)} />
@@ -115,7 +116,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
         {described && <ErrorBanner described={described} failures={finished ? failures : 0} onSwitchDemo={onSwitchDemo} />}
       </div>
 
-      <SafetyEvidence analysis={analysis} recorded={!!recorded} onInclude={onInclude} onWithhold={onWithhold} onRetryGuard={onRetryGuard} onShowSpan={(id) => focus(id, "card")} onRetryPromise={onRetryPromise} onMakePack={onMakePack} />
+      <SafetyEvidence analysis={analysis} recorded={!!recorded} onInclude={onInclude} onWithhold={onWithhold} onRetryGuard={onRetryGuard} onShowSpan={(id) => focus(id, "card")} onRetryPromise={onRetryPromise} onMakePack={onMakePack} onRetryScript={onRetryScript} />
 
       <div className="flex gap-2 lg:hidden" role="group" aria-label="Show findings or thread">
         {(["findings", "thread"] as const).map((t) => (

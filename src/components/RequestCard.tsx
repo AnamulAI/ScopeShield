@@ -4,6 +4,8 @@ import type { RequestItem } from "../lib/pipeline";
 import { effortLabel } from "../lib/health";
 import { askQuestion, effectiveQueue, showWithdrawalNote, THRESHOLDS, type Decision } from "../lib/routing";
 import { ClauseIcon, QueueIcon, UndoIcon } from "./icons";
+import { ScriptRow } from "./ScriptRow";
+import type { ScriptCheck } from "../lib/snippets";
 import type { Queue } from "../lib/routing";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { ProbBar } from "./ProbBar";
@@ -20,12 +22,13 @@ export interface CardActions {
   onRetrySupport: () => void;
   onAck: () => void;
   onRetryVerify: () => void;
+  onRetryScript: (index: number) => void;
 }
-interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string; coOpen: boolean; setCoOpen: (v: boolean) => void; /** position in its queue, for the short reveal stagger */ revealIndex?: number }
+interface Props extends CardActions { item: RequestItem; active: boolean; speaker: string; coOpen: boolean; setCoOpen: (v: boolean) => void; /** position in its queue, for the short reveal stagger */ revealIndex?: number; /** M13: code-snippet checks for this request's message */ scripts?: { check: ScriptCheck; index: number }[] }
 
 const btn = "rounded-lg border px-4 py-2 text-sm font-semibold press";
 
-export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, revealIndex = 0, onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport, onAck, onRetryVerify }, ref) {
+export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({ item, active, speaker, coOpen, setCoOpen, revealIndex = 0, scripts = [], onShow, onRetry, onDecide, onPrepare, onRegenerate, onRetrySupport, onAck, onRetryVerify, onRetryScript }, ref) {
   const eq = effectiveQueue(item.route, item.decision);
   const modelQ = item.route ? QUEUES[item.route.queue] : null;
   const withdrawn = eq === "withdrawn";
@@ -88,6 +91,8 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
           </p>
         </>
       )}
+
+      <ScriptRow checks={scripts} onShow={onShow} onRetry={onRetryScript} />
 
       {/* ASK ME: one concrete question, three answers */}
       {item.route?.queue === "ask_me" && item.route.ask && (

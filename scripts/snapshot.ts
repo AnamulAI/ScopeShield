@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createClockedClient } from "../src/lib/clocked";
 import type { Snapshot } from "../src/lib/demo";
 import { buildPackText } from "../src/lib/evidencePack";
-import { runGoverning, runGuard, runProtect, runPromiseCheck } from "../src/lib/features";
+import { runGoverning, runGuard, runProtect, runPromiseCheck, runScriptChecks } from "../src/lib/features";
 import { splitClauses } from "../src/lib/governing";
 import { analyze, applyWithheld, emptyUsage, includeMessage, runFill, runPrice, runVerify, totalCredits, type Analysis, type UsageKey } from "../src/lib/pipeline";
 import { effectiveQueue } from "../src/lib/routing";
@@ -17,7 +17,7 @@ import { SAMPLES } from "../src/lib/samples";
 import { countVerdicts } from "../src/lib/verify";
 
 const LIVE_MARK = "<!-- live-run -->"; // everything after this marker in docs/credit-usage.md is hand-written and survives a re-record
-const PARTS = ["guard", "rerank", "compare", "price", "fill", "verify", "pii"] as const;
+const PARTS = ["guard", "rerank", "compare", "script", "price", "fill", "verify", "pii"] as const;
 type Part = (typeof PARTS)[number];
 
 const args = process.argv.slice(2);
@@ -64,6 +64,7 @@ const log = (a: Analysis) => {
   }
   const gd = a.guard;
   console.log(`  guard: ${gd ? `${gd.status} ${gd.result ? `injection ${gd.result.injection.toFixed(2)} (${gd.result.verdict})` : ""} flagged messages: [${gd.flags.map((f) => f.messageIndex).join(",")}]` : "not run"}`);
+  console.log(`  scripts: ${a.scripts ? (a.scripts.length === 0 ? "none found, no call" : a.scripts.map((c) => `message ${c.messageIndex + 1}: ${c.status} ${c.result ? `${c.result.risk} (malicious ${c.result.malicious.toFixed(2)}, suspicious ${c.result.suspicious.toFixed(2)}, ${c.result.category})` : ""}`).join("; ")) : "not run"}`);
   const pc = a.promiseCheck;
   console.log(`  promise check: ${pc ? `${pc.status}, ${pc.conflicts.length} possible conflict(s)${pc.conflicts.map((c) => `\n      contract: "${c.contract.quote}"\n      yours:    "${c.yours.quote}"`).join("")}` : "not run"}`);
 };
@@ -93,6 +94,7 @@ for (const s of SAMPLES.filter((x) => !sampleId || x.id === sampleId)) {
       await Promise.all(a.items.filter((i) => i.route?.queue !== "withdrawn" && i.status === "done").map((i) => runGoverning(a, i, inputs, client, noop)));
     }
     if (only.has("compare")) { reset(a, "compare"); a.promiseCheck = undefined; await runPromiseCheck(a, inputs, client, noop); }
+    if (only.has("script")) { reset(a, "script"); a.scripts = undefined; await runScriptChecks(a, inputs, client, noop); }
     if (only.has("price")) {
       reset(a, "price");
       for (const i of a.items) delete i.agreedPrice;
@@ -137,7 +139,7 @@ for (const s of SAMPLES.filter((x) => !sampleId || x.id === sampleId)) {
 const snaps = SAMPLES.filter((x) => existsSync(`public/demo/${x.id}.json`)).map((x) => ({ sample: x, snap: JSON.parse(readFileSync(`public/demo/${x.id}.json`, "utf8")) as Snapshot }));
 writeFileSync("public/demo/index.json", JSON.stringify(snaps.map(({ sample, snap }) => ({ id: sample.id, title: sample.title, blurb: sample.blurb, recordedAt: snap.recordedAt }))));
 const cell = (a: Analysis, k: UsageKey) => `${a.usage[k]?.calls ?? 0} / ${a.usage[k]?.credits ?? 0}`;
-const rows = snaps.map(({ sample, snap }) => `| ${sample.title} | ${snap.analysis.messages.length} / ${snap.analysis.messageStates.length} | ${snap.analysis.items.length} | ${cell(snap.analysis, "extract")} | ${cell(snap.analysis, "decide")} | ${cell(snap.analysis, "price")} | ${cell(snap.analysis, "fill")} | ${cell(snap.analysis, "verify")} | ${cell(snap.analysis, "guard")} | ${cell(snap.analysis, "rerank")} | ${cell(snap.analysis, "compare")} | ${cell(snap.analysis, "pii")} | **${totalCredits(snap.analysis.usage)}** |`);
+const rows = snaps.map(({ sample, snap }) => `| ${sample.title} | ${snap.analysis.messages.length} / ${snap.analysis.messageStates.length} | ${snap.analysis.items.length} | ${cell(snap.analysis, "extract")} | ${cell(snap.analysis, "decide")} | ${cell(snap.analysis, "price")} | ${cell(snap.analysis, "fill")} | ${cell(snap.analysis, "verify")} | ${cell(snap.analysis, "guard")} | ${cell(snap.analysis, "rerank")} | ${cell(snap.analysis, "compare")} | ${cell(snap.analysis, "script")} | ${cell(snap.analysis, "pii")} | **${totalCredits(snap.analysis.usage)}** |`);
 const prev = existsSync("docs/credit-usage.md") ? readFileSync("docs/credit-usage.md", "utf8") : "";
 const keep = prev.includes(LIVE_MARK) ? prev.slice(prev.indexOf(LIVE_MARK)) : "";
 writeFileSync(
@@ -146,10 +148,10 @@ writeFileSync(
     `# Credit usage per analysis`,
     ``,
     `Measured from \`X-Clocked-Credits\` on the recorded demo samples (\`npm run snapshot\`), last written ${date}. Cells are calls / credits per endpoint.`,
-    `Each recording = Guard (1 call over the client's messages) + Extract per client message + Decide per request + Extract for the agreement/withdrawal sentence of AGREED EXTRA and WITHDRAWN items (under "Extract") + Extract for the quoted price of AGREED EXTRA items ("Price") + Rerank per active request ("Rerank") + Compare (1 call over the freelancer's messages) + Fill and Verify for every NEEDS CHANGE ORDER and ASK ME item + one Protect call per evidence pack ("Pack"). Fill, Verify and Pack are on demand in the live app; the recording prepares them all, and for flagged messages also records the "Include anyway" result.`,
+    `Each recording = Guard (1 call over the client's messages) + Extract per client message + Decide per request + Extract for the agreement/withdrawal sentence of AGREED EXTRA and WITHDRAWN items (under "Extract") + Extract for the quoted price of AGREED EXTRA items ("Price") + Rerank per active request ("Rerank") + Compare (1 call over the freelancer's messages) + Inspect (1 call per client-supplied code snippet, none when there is none; "Script") + Fill and Verify for every NEEDS CHANGE ORDER and ASK ME item + one Protect call per evidence pack ("Pack"). Fill, Verify and Pack are on demand in the live app; the recording prepares them all, and for flagged messages also records the "Include anyway" result.`,
     ``,
-    `| Sample | Messages / client messages | Requests | Extract | Decide | Price | Fill | Verify | Guard | Rerank | Compare | Pack | Total credits |`,
-    `|---|---|---|---|---|---|---|---|---|---|---|---|---|`,
+    `| Sample | Messages / client messages | Requests | Extract | Decide | Price | Fill | Verify | Guard | Rerank | Compare | Script | Pack | Total credits |`,
+    `|---|---|---|---|---|---|---|---|---|---|---|---|---|---|`,
     ...rows,
     ``,
     ...(only ? [`Last partial re-record (\`--only ${[...only].join(",")}\`) changed the totals above by ${rerunCredits} credits net; Extract and Decide results of the other parts were kept from earlier runs.`, ``] : []),

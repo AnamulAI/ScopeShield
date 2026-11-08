@@ -34,9 +34,10 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
     }
     // M9 Guard: the passages Guard pointed at, and M12 Compare: the freelancer's statements that may conflict with the contract
     for (const f of analysis.guard?.flags ?? []) f.spans.forEach((sp, k) => out.push({ id: `guard${f.messageIndex}-${k}:guard`, ...sp }));
+    (analysis.scripts ?? []).forEach((sc, i) => (sc.evidence ?? []).forEach((e, k) => { if (e.start >= 0) out.push({ id: `script${i}-${k}:script`, start: e.start, end: e.end }); }));
     analysis.promiseCheck?.conflicts.forEach((c, i) => c.yours.spans.forEach((sp, k) => out.push({ id: `promise${i}-${k}:promise`, ...sp })));
     return out.sort((a, b) => (a.id.includes(":") ? 1 : 0) - (b.id.includes(":") ? 1 : 0)); // requests win overlaps
-  }, [analysis.items, analysis.guard, analysis.promiseCheck, openIds]);
+  }, [analysis.items, analysis.guard, analysis.promiseCheck, analysis.scripts, openIds]);
   const itemById = useMemo(() => new Map(analysis.items.map((i) => [i.id, i])), [analysis.items]);
   const people = useMemo(() => participants(analysis.messages), [analysis.messages]);
   const placed = useMemo(() => placeMessages(analysis.messages), [analysis.messages]);
@@ -78,6 +79,16 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                     const item = itemById.get(baseId);
                     if (!item) {
                       const isGuard = sub === "guard";
+                      if (sub === "script") {
+                        const sc = analysis.scripts?.[Number(baseId.slice(6).split("-")[0])];
+                        const bad = sc?.result?.risk === "harmful";
+                        return (
+                          <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title="Line the code check pointed at (model estimate)"
+                            className={`cursor-pointer rounded px-1 py-0.5 font-mono text-[0.85em] text-ink [box-decoration-break:clone] border-b-2 border-dashed ${bad ? "border-change bg-change-bg" : "border-warn bg-warn-bg"} ${activeId === seg.id ? "sweep outline outline-2 outline-navy" : ""}`}>
+                            {seg.text}
+                          </mark>
+                        );
+                      }
                       return (
                         <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={isGuard ? "Flagged by Guard (estimate)" : "Possible conflict with the contract (please review)"}
                           className={`cursor-pointer rounded px-1 py-0.5 [box-decoration-break:clone] border-b-2 border-dashed ${isGuard ? "border-warn bg-warn-bg text-ink" : "border-ink bg-card text-ink ring-1 ring-ink/20"} ${activeId === seg.id ? "sweep outline outline-2 outline-navy" : ""}`}>

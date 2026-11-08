@@ -3,7 +3,7 @@ import { describeCounts } from "../lib/protect";
 import { effectiveQueue, QUEUE_LABEL } from "../lib/routing";
 import type { Analysis } from "../lib/pipeline";
 import { describeError } from "../lib/errors";
-import { ConflictIcon, PackIcon, ShieldAlertIcon, ShieldCheckIcon } from "./icons";
+import { CodeIcon, ConflictIcon, PackIcon, ShieldAlertIcon, ShieldCheckIcon } from "./icons";
 import { CopyButton } from "./CopyButton";
 
 interface Props {
@@ -17,12 +17,13 @@ interface Props {
   onRetryPromise: () => void;
   /** M11: build and mask an evidence pack for one request (live mode only; Demo shows recorded packs) */
   onMakePack: (itemId: string) => void;
+  onRetryScript: (index: number) => void;
 }
 
 const row = "border-t border-line px-5 py-4 first:border-t-0 sm:px-6";
 
 /** One calm area for the safety and evidence features. Model judgments are labelled as estimates. */
-export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRetryGuard, onShowSpan, onRetryPromise, onMakePack }: Props) {
+export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRetryGuard, onShowSpan, onRetryPromise, onMakePack, onRetryScript }: Props) {
   const g = analysis.guard;
   const flagged = g ? [...new Set([...g.withheld, ...g.included])].sort((a, b) => a - b) : [];
   const clientCount = analysis.messages.filter((m) => m.isClient).length;
@@ -109,6 +110,27 @@ export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRe
             ))}
           </ul>
         )}
+      </div>
+
+      {/* M13 Inspect: client-supplied scripts */}
+      <div className={row} id="scripts">
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><CodeIcon width={18} height={18} className="text-navy" />Client-supplied scripts</h3>
+        {!analysis.scripts && <p className="mt-1 text-sm text-muted">Not run{recorded ? " in this recording" : ""}.</p>}
+        {analysis.scripts && analysis.scripts.length === 0 && <p className="mt-1 text-sm text-ink/85">No code snippet found in the client’s messages, so no call was made.</p>}
+        {analysis.scripts && analysis.scripts.length > 0 && (
+          <ul className="mt-2 space-y-2">
+            {analysis.scripts.map((c, i) => (
+              <li key={i} className="rounded-xl border border-line bg-paper px-4 py-3 text-sm">
+                <span className="text-xs text-muted">{analysis.messages[c.messageIndex]?.speaker} · message {c.messageIndex + 1}</span>{" "}
+                {c.status === "running" && <span role="status" className="inline-flex items-center gap-2 text-muted"><span className="spinner" /> checking…</span>}
+                {c.status === "failed" && <span role="alert">could not be checked. <button onClick={() => onRetryScript(i)} className="font-semibold text-navy underline underline-offset-4">Retry</button></span>}
+                {c.status === "done" && c.result && <b>{c.result.risk === "routine" ? "Looks routine" : c.result.risk === "suspicious" ? "Suspicious" : "Harmful"} <span className="font-normal text-muted">(model estimate)</span></b>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {(analysis.scriptsSkipped ?? 0) > 0 && <p className="mt-2 text-xs text-muted">{analysis.scriptsSkipped} more snippet{analysis.scriptsSkipped === 1 ? " was" : "s were"} not checked (at most 3 per thread, each up to 5,000 characters). Read {analysis.scriptsSkipped === 1 ? "it" : "them"} yourself.</p>}
+        <p className="mt-2 text-xs text-muted">A benign result is not a safety guarantee. Read the code yourself.</p>
       </div>
 
       {/* M11 Protect: privacy-safe evidence pack */}

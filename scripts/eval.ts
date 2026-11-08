@@ -8,6 +8,8 @@ import { buildRerankRequest, pickGoverning, splitClauses } from "../src/lib/gove
 import { buildGuardInput, buildGuardRequest, mapGuardEvidence } from "../src/lib/guard";
 import { buildPromiseInput, buildPromiseRequest, toConflicts } from "../src/lib/promise";
 import { buildPiiRequest, toPack } from "../src/lib/protect";
+import type { ScriptResponse } from "../src/lib/clocked-types";
+import { buildInspectRequest, isFlagged, riskOf } from "../src/lib/snippets";
 import { decideRequest, extractMessage, fillChangeOrder } from "../src/lib/pipeline";
 import { buildVerifyRequest } from "../src/lib/prompts";
 import { toVerifiedClaims, countVerdicts } from "../src/lib/verify";
@@ -16,8 +18,11 @@ import { parseThread, sliceCp } from "../src/lib/thread";
 const BASE = process.env.EVAL_BASE_URL ?? "http://localhost:8788";
 const golden = JSON.parse(readFileSync("evals/golden.json", "utf8"));
 const client = createClockedClient({ baseUrl: BASE });
-const credits = { extract: 0, decide: 0, fill: 0, verify: 0, guard: 0, rerank: 0, pii: 0, compare: 0 };
-const calls = { extract: 0, decide: 0, fill: 0, verify: 0, guard: 0, rerank: 0, pii: 0, compare: 0 };
+const credits = { extract: 0, decide: 0, fill: 0, verify: 0, guard: 0, rerank: 0, pii: 0, compare: 0, script: 0 };
+const calls = { extract: 0, decide: 0, fill: 0, verify: 0, guard: 0, rerank: 0, pii: 0, compare: 0, script: 0 };
+// `npm run eval -- --kind script` runs only those cases, prints the table and does NOT overwrite docs/eval-results.md (a full run does).
+const kindIdx = process.argv.indexOf("--kind");
+const onlyKind = kindIdx >= 0 ? process.argv[kindIdx + 1] : null;
 const track = (ep: keyof typeof credits, u: { credits: number } | null) => ((credits[ep] += u?.credits ?? 0), calls[ep]++);
 
 interface Result { id: string; kind: string; pass: boolean; detail: string }
@@ -58,6 +63,15 @@ async function runCase(c: any): Promise<Result> {
       if (c.expect.minFlagged !== undefined && n.contradicted + n.notStated < c.expect.minFlagged) fails.push(`flagged ${n.contradicted + n.notStated} claims, expected at least ${c.expect.minFlagged}`);
       if (c.expect.maxContradicted !== undefined && n.contradicted > c.expect.maxContradicted) fails.push(`${n.contradicted} contradicted, expected at most ${c.expect.maxContradicted}`);
       return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `supported ${n.supported}, not stated ${n.notStated}, contradicted ${n.contradicted}` };
+    }
+    if (c.kind === "script") {
+      const { data, usage } = await client.call<ScriptResponse>("script", buildInspectRequest(c.script));
+      track("script", usage);
+      const risk = riskOf(data);
+      const flagged = isFlagged(risk);
+      const fails: string[] = [];
+      if (flagged !== c.expect.flagged) fails.push(`risk=${risk} (malicious ${data.malicious.toFixed(3)}, suspicious ${data.suspicious.toFixed(3)}), expected flagged=${c.expect.flagged}`);
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `${risk} (malicious ${data.malicious.toFixed(3)}, suspicious ${data.suspicious.toFixed(3)}${data.category ? `, ${data.category}` : ""})` };
     }
     if (c.kind === "guard") {
       const msgs = c.messages.map((text: string, i: number) => ({ index: i, speaker: "Client", isClient: true, text, start: 0, end: 0 }));
@@ -134,7 +148,7 @@ async function runCase(c: any): Promise<Result> {
   }
 }
 
-const results = await Promise.all(golden.cases.map(runCase)); // client caps concurrency at 3
+const results = await Promise.all(golden.cases.filter((c: any) => !onlyKind || c.kind === onlyKind).map(runCase)); // client caps concurrency at 3
 const passed = results.filter((r) => r.pass).length;
 const total = Object.values(credits).reduce((t, x) => t + x, 0);
 const date = new Date().toISOString().slice(0, 10);
@@ -166,6 +180,6 @@ const md = [
   `| **Total** | ${Object.values(calls).reduce((t, x) => t + x, 0)} | **${total}** |`,
   ``,
 ].join("\n") + "\n" + readFileSync("docs/eval-notes.md", "utf8");
-writeFileSync("docs/eval-results.md", md);
+if (!onlyKind) writeFileSync("docs/eval-results.md", md);
 console.log(md);
 process.exit(passed === results.length ? 0 : 1);
