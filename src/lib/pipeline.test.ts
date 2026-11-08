@@ -111,7 +111,7 @@ const clientFor = (responses: unknown[], seen: any[] = []) =>
   });
 const verifyOk = { claims: [{ claim: "A blog is extra.", kind: "claim", verdict: "supported", supported: 0.9, contradicted: 0, not_stated: 0, source: "thread" }] };
 const inputs = { contract: "Fixed price $800", thread: "Client: Please add a blog.\nDev: A blog is extra.", clientName: "Client" };
-const blank = (): { a: Analysis; item: RequestItem } => ({ a: { messages: [], messageStates: [], items: [], usage: emptyUsage() }, item: { id: "0-0", messageIndex: 0, text: "add a blog", evidence: null, status: "done" } });
+const blank = (): { a: Analysis; item: RequestItem } => ({ a: { messages: [], messageStates: [], items: [], usage: emptyUsage() }, item: { id: "0-0", messageIndex: 0, text: "add a blog", evidence: null, status: "done", governing: { status: "done" as const, clauseId: null, text: null } } });
 
 describe("runFill guard", () => {
   it("blocks Copy on an invented amount, allows exactly ONE strict Regenerate, then stays blocked if still invented", async () => {

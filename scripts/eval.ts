@@ -3,7 +3,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createClockedClient } from "../src/lib/clocked";
 import { inventedAmounts } from "../src/lib/checks";
-import type { VerifyResponse } from "../src/lib/clocked-types";
+import type { CompareResponse, GuardResponse, PiiResponse, RerankResponse, VerifyResponse } from "../src/lib/clocked-types";
+import { buildRerankRequest, pickGoverning, splitClauses } from "../src/lib/governing";
+import { buildGuardInput, buildGuardRequest, mapGuardEvidence } from "../src/lib/guard";
+import { buildPromiseInput, buildPromiseRequest, toConflicts } from "../src/lib/promise";
+import { buildPiiRequest, toPack } from "../src/lib/protect";
 import { decideRequest, extractMessage, fillChangeOrder } from "../src/lib/pipeline";
 import { buildVerifyRequest } from "../src/lib/prompts";
 import { toVerifiedClaims, countVerdicts } from "../src/lib/verify";
@@ -12,8 +16,8 @@ import { parseThread, sliceCp } from "../src/lib/thread";
 const BASE = process.env.EVAL_BASE_URL ?? "http://localhost:8788";
 const golden = JSON.parse(readFileSync("evals/golden.json", "utf8"));
 const client = createClockedClient({ baseUrl: BASE });
-const credits = { extract: 0, decide: 0, fill: 0, verify: 0 };
-const calls = { extract: 0, decide: 0, fill: 0, verify: 0 };
+const credits = { extract: 0, decide: 0, fill: 0, verify: 0, guard: 0, rerank: 0, pii: 0, compare: 0 };
+const calls = { extract: 0, decide: 0, fill: 0, verify: 0, guard: 0, rerank: 0, pii: 0, compare: 0 };
 const track = (ep: keyof typeof credits, u: { credits: number } | null) => ((credits[ep] += u?.credits ?? 0), calls[ep]++);
 
 interface Result { id: string; kind: string; pass: boolean; detail: string }
@@ -55,6 +59,51 @@ async function runCase(c: any): Promise<Result> {
       if (c.expect.maxContradicted !== undefined && n.contradicted > c.expect.maxContradicted) fails.push(`${n.contradicted} contradicted, expected at most ${c.expect.maxContradicted}`);
       return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `supported ${n.supported}, not stated ${n.notStated}, contradicted ${n.contradicted}` };
     }
+    if (c.kind === "guard") {
+      const msgs = c.messages.map((text: string, i: number) => ({ index: i, speaker: "Client", isClient: true, text, start: 0, end: 0 }));
+      const input = buildGuardInput(msgs);
+      const { data, usage } = await client.call<GuardResponse>("injection", buildGuardRequest(input));
+      track("guard", usage);
+      const flagged = data.verdict === "injection";
+      const mapped = mapGuardEvidence(input, data.evidence ?? []);
+      const fails: string[] = [];
+      if (flagged !== c.expect.flagged) fails.push(`flagged=${flagged} (injection ${data.injection.toFixed(3)}), expected ${c.expect.flagged}`);
+      if (c.expect.flagged && mapped.flags.length === 0) fails.push("flagged but no message could be located");
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `injection ${data.injection.toFixed(3)} (${data.verdict}), flagged messages: ${mapped.flags.map((f) => f.messageIndex).join(",") || "none"}` };
+    }
+    if (c.kind === "rerank") {
+      const clauses = splitClauses(golden.contract);
+      const { data, usage } = await client.call<RerankResponse>("rerank", buildRerankRequest(clauses, c.request));
+      track("rerank", usage);
+      const pick = pickGoverning(data, clauses);
+      const fails: string[] = [];
+      if (c.expect.clauseContains && !(pick.text ?? "").includes(c.expect.clauseContains)) fails.push(`governing clause is ${pick.clauseId ?? "none"}: "${pick.text ?? ""}"`);
+      if (c.expect.clauseNotContains && (pick.text ?? "").includes(c.expect.clauseNotContains)) fails.push(`governing clause should not contain "${c.expect.clauseNotContains}": "${pick.text}"`);
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `${pick.clauseId ?? "none"} (${Math.round(pick.relevance * 100)}%) ${pick.text ? `"${pick.text.slice(0, 60)}"` : "no clause covers it"}` };
+    }
+    if (c.kind === "pii") {
+      const { data, usage } = await client.call<PiiResponse>("pii", buildPiiRequest(c.text));
+      track("pii", usage);
+      const pack = toPack(data, c.text);
+      const n = Object.values(pack.counts ?? {}).reduce((t, x) => t + x, 0);
+      const fails: string[] = [];
+      if (c.expect.minFindings !== undefined && n < c.expect.minFindings) fails.push(`${n} findings < ${c.expect.minFindings}`);
+      if (c.expect.maxFindings !== undefined && n > c.expect.maxFindings) fails.push(`${n} findings > ${c.expect.maxFindings}`);
+      for (const w of c.expect.maskedMustNotContain ?? []) if ((pack.maskedText ?? "").includes(w)) fails.push(`masked text still contains "${w}"`);
+      if (c.expect.maxFindings === 0 && pack.maskedText !== c.text) fails.push("text changed although nothing was found");
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `${n} finding(s) ${JSON.stringify(pack.counts)}; masked: "${(pack.maskedText ?? "").slice(0, 70)}"` };
+    }
+    if (c.kind === "compare") {
+      const msgs = c.messages.map((text: string, i: number) => ({ index: i, speaker: "You", isClient: false, text, start: 0, end: 0 }));
+      const input = buildPromiseInput(msgs);
+      const { data, usage } = await client.call<CompareResponse>("compare", buildPromiseRequest(golden.contract, input));
+      track("compare", usage);
+      const conflicts = toConflicts(data, golden.contract, input);
+      const fails: string[] = [];
+      if (c.expect.minConflicts !== undefined && conflicts.length < c.expect.minConflicts) fails.push(`${conflicts.length} conflicts < ${c.expect.minConflicts}`);
+      if (c.expect.maxConflicts !== undefined && conflicts.length > c.expect.maxConflicts) fails.push(`${conflicts.length} conflicts > ${c.expect.maxConflicts}: "${conflicts[0]?.yours.quote}"`);
+      return { ...base, pass: fails.length === 0, detail: fails.join("; ") || `${conflicts.length} possible conflict(s)${conflicts[0] ? `: "${conflicts[0].yours.quote.slice(0, 60)}"` : ""}` };
+    }
     // fill
     const co = await fillChangeOrder(client, { contract: golden.contract, thread: c.thread, clientName: "Client" }, c.request, false, { effortScore: c.effortScore ?? 2, agreed: c.agreed ?? false });
     track("fill", co.usage);
@@ -87,7 +136,7 @@ async function runCase(c: any): Promise<Result> {
 
 const results = await Promise.all(golden.cases.map(runCase)); // client caps concurrency at 3
 const passed = results.filter((r) => r.pass).length;
-const total = credits.extract + credits.decide + credits.fill + credits.verify;
+const total = Object.values(credits).reduce((t, x) => t + x, 0);
 const date = new Date().toISOString().slice(0, 10);
 const esc = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
 
@@ -110,7 +159,11 @@ const md = [
   `| decide | ${calls.decide} | ${credits.decide} |`,
   `| fill | ${calls.fill} | ${credits.fill} |`,
   `| verify | ${calls.verify} | ${credits.verify} |`,
-  `| **Total** | ${calls.extract + calls.decide + calls.fill + calls.verify} | **${total}** |`,
+  `| guard | ${calls.guard} | ${credits.guard} |`,
+  `| rerank | ${calls.rerank} | ${credits.rerank} |`,
+  `| pii | ${calls.pii} | ${credits.pii} |`,
+  `| compare | ${calls.compare} | ${credits.compare} |`,
+  `| **Total** | ${Object.values(calls).reduce((t, x) => t + x, 0)} | **${total}** |`,
   ``,
 ].join("\n") + "\n" + readFileSync("docs/eval-notes.md", "utf8");
 writeFileSync("docs/eval-results.md", md);

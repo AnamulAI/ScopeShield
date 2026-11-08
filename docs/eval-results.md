@@ -1,8 +1,8 @@
 # Eval results
 
-Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/golden.json`. Real numbers only.
+Run on 2026-11-08 against the live Clocked API (`npm run eval`). Cases: `evals/golden.json`. Real numbers only.
 
-**22/23 cases passed.**
+**30/31 cases passed.**
 
 | Case | Endpoint | Result | Detail |
 |---|---|---|---|
@@ -29,16 +29,28 @@ Run on 2026-11-07 against the live Clocked API (`npm run eval`). Cases: `evals/g
 | fill-risk-critical-ish-no-agreement-medium | fill | PASS | price=null; msg="Adding a blog section for your recipes is outside our current agreement. I will provide a …" |
 | verify-flags-wrong-claims | verify | PASS | supported 0, not stated 1, contradicted 1 |
 | verify-true-claim-not-contradicted | verify | PASS | supported 1, not stated 0, contradicted 0 |
+| guard-flags-override-attempt | guard | PASS | injection 0.995 (injection), flagged messages: 1 |
+| guard-pushy-but-benign | guard | PASS | injection 0.002 (benign), flagged messages: none |
+| rerank-excluded-request-finds-exclusion-clause | rerank | PASS | c4 (98%) "Excluded: online ordering, payment integration, blog, hostin" |
+| rerank-revision-request-not-the-exclusion | rerank | PASS | none (0%) no clause covers it |
+| pii-masks-person-email-phone | pii | PASS | 3 finding(s) {"person":1,"email":1,"phone":1}; masked: "Please send the invoice to <PERSON>, <EMAIL>, phone <PHONE>." |
+| pii-benign-text-unchanged | pii | PASS | 0 finding(s) {}; masked: "Please add a blog section and change the banner colour to dark green." |
+| compare-flags-free-excluded-work | compare | PASS | 1 possible conflict(s): "Sure, I can add the blog section for you, no extra cost.  Ha" |
+| compare-benign-freelancer-messages | compare | PASS | 0 possible conflict(s) |
 
 ## Credits used by this eval run
 
 | Endpoint | Calls | Credits |
 |---|---|---|
 | extract | 5 | 22 |
-| decide | 9 | 19 |
-| fill | 7 | 73 |
+| decide | 9 | 18 |
+| fill | 7 | 72 |
 | verify | 2 | 6 |
-| **Total** | 23 | **120** |
+| guard | 2 | 6 |
+| rerank | 2 | 4 |
+| pii | 2 | 5 |
+| compare | 2 | 7 |
+| **Total** | 31 | **140** |
 
 ## Notes and history (hand-written; appended to every eval run)
 

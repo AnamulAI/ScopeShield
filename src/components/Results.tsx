@@ -5,6 +5,7 @@ import { RequestCard } from "./RequestCard";
 import { describeError, worstKind } from "../lib/errors";
 import { QUEUE_ORDER, QUEUES } from "./queues";
 import { ErrorBanner } from "./ErrorBanner";
+import { SafetyEvidence } from "./SafetyEvidence";
 import { ChevronIcon, QueueIcon } from "./icons";
 import { isExpanded, visibleQueues, type Filter } from "../lib/replay";
 import { useReplay } from "./useReplay";
@@ -17,6 +18,7 @@ interface Props {
   onDecide: (id: string, d: Decision | undefined) => void; onPrepare: (id: string) => void; onPrepareAll: () => void;
   onRegenerate: (id: string) => void; onRetrySupport: (id: string) => void;
   onAck: (id: string) => void; onRetryVerify: (id: string) => void;
+  onInclude: (messageIndex: number) => void; onWithhold: (messageIndex: number) => void; onRetryGuard: () => void;
   recorded?: boolean; onSwitchDemo?: () => void;
   /** Demo only: shown when the current sample has no Ask me item. */
   askHint?: { onOpen: () => void };
@@ -24,7 +26,7 @@ interface Props {
   openAll?: boolean;
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, recorded, onSwitchDemo, askHint, openAll }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, onInclude, onWithhold, onRetryGuard, recorded, onSwitchDemo, askHint, openAll }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
@@ -112,6 +114,8 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
         {described && <ErrorBanner described={described} failures={finished ? failures : 0} onSwitchDemo={onSwitchDemo} />}
       </div>
 
+      <SafetyEvidence analysis={analysis} recorded={!!recorded} onInclude={onInclude} onWithhold={onWithhold} onRetryGuard={onRetryGuard} />
+
       <div className="flex gap-2 lg:hidden" role="group" aria-label="Show findings or thread">
         {(["findings", "thread"] as const).map((t) => (
           <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}
@@ -192,7 +196,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
 
         <aside ref={replay.panel} aria-label="Thread" className={`${tab === "thread" ? "" : "hidden"} min-w-0 lg:sticky lg:top-20 lg:block`}>
           <ChatWindow ref={chat} analysis={analysis} recorded={!!recorded} replay={replay} openIds={openCO} activeId={activeId}
-            onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} />
+            onPick={(id) => focus(id, "thread")} onRetryMessage={onRetryMessage} onInclude={onInclude} onWithhold={onWithhold} />
         </aside>
       </div>
 

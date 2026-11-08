@@ -4,7 +4,7 @@ import { describeError } from "../lib/errors";
 import type { Analysis } from "../lib/pipeline";
 import { effectiveQueue } from "../lib/routing";
 import { segmentMessage } from "../lib/thread";
-import { QueueIcon } from "./icons";
+import { QueueIcon, ShieldAlertIcon } from "./icons";
 import { QUEUES } from "./queues";
 
 interface Props {
@@ -13,10 +13,13 @@ interface Props {
   revealed?: number;
   /** Replay only: index of the bubble that is about to appear (three-dot typing indicator). */
   typingIndex?: number | null;
+  /** M9: Guard flags, with the user's choice to include or withhold a flagged message */
+  onInclude?: (messageIndex: number) => void;
+  onWithhold?: (messageIndex: number) => void;
 }
 
 /** The thread as a generic chat conversation: client on the left, everyone else on the right, evidence kept inside the bubbles. */
-export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage, revealed = Infinity, typingIndex = null }: Props) {
+export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage, revealed = Infinity, typingIndex = null, onInclude, onWithhold }: Props) {
   // Main span = the request; secondary spans = agreement/withdrawal sentence and the quoted price.
   const spans = useMemo(() => {
     const out: { id: string; start: number; end: number }[] = [];
@@ -29,8 +32,11 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
       // Verify evidence in the thread, only while that change order is open (keeps the thread calm otherwise).
       if (openIds.has(i.id)) i.changeOrder?.verify?.claims?.forEach((c, k) => { if (c.evidence?.document === "thread" && c.evidence.located) out.push({ id: `${i.id}:v${k}`, start: c.evidence.start, end: c.evidence.end }); });
     }
+    // M9 Guard: the passages Guard pointed at, and M12 Compare: the freelancer's statements that may conflict with the contract
+    for (const f of analysis.guard?.flags ?? []) f.spans.forEach((sp, k) => out.push({ id: `guard${f.messageIndex}-${k}:guard`, ...sp }));
+    analysis.promiseCheck?.conflicts.forEach((c, i) => c.yours.spans.forEach((sp, k) => out.push({ id: `promise${i}-${k}:promise`, ...sp })));
     return out.sort((a, b) => (a.id.includes(":") ? 1 : 0) - (b.id.includes(":") ? 1 : 0)); // requests win overlaps
-  }, [analysis.items, openIds]);
+  }, [analysis.items, analysis.guard, analysis.promiseCheck, openIds]);
   const itemById = useMemo(() => new Map(analysis.items.map((i) => [i.id, i])), [analysis.items]);
   const people = useMemo(() => participants(analysis.messages), [analysis.messages]);
   const placed = useMemo(() => placeMessages(analysis.messages), [analysis.messages]);
@@ -69,7 +75,16 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                   {segs.map((seg, k) => {
                     if (!seg.id) return <span key={k}>{seg.text}</span>;
                     const [baseId, sub] = seg.id.split(":");
-                    const item = itemById.get(baseId)!;
+                    const item = itemById.get(baseId);
+                    if (!item) {
+                      const isGuard = sub === "guard";
+                      return (
+                        <mark key={k} id={`ev-${seg.id}`} onClick={() => onPick(seg.id!)} title={isGuard ? "Flagged by Guard (estimate)" : "Possible conflict with the contract (please review)"}
+                          className={`cursor-pointer rounded px-1 py-0.5 [box-decoration-break:clone] border-b-2 border-dashed ${isGuard ? "border-warn bg-warn-bg text-ink" : "border-ink bg-card text-ink ring-1 ring-ink/20"} ${activeId === seg.id ? "sweep outline outline-2 outline-navy" : ""}`}>
+                          {seg.text}
+                        </mark>
+                      );
+                    }
                     const eq = effectiveQueue(item.route, item.decision);
                     const q = eq !== "pending" ? QUEUES[eq] : null;
                     const withdrawn = eq === "withdrawn";
@@ -85,6 +100,15 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                 {/* what the app found in this client message: verdict chips, or a quiet note */}
                 {m.isClient && (mine.length > 0 || st) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5 px-1">
+                    {(analysis.guard?.withheld.includes(m.index) || analysis.guard?.included.includes(m.index)) && (
+                      <span data-guard-chip className="inline-flex flex-wrap items-center gap-1.5 rounded-xl border border-warn/30 bg-warn-bg px-3 py-1.5 text-xs font-semibold text-warn">
+                        <ShieldAlertIcon width={14} height={14} />
+                        {analysis.guard?.withheld.includes(m.index) ? "Possible instruction to the analysis tool (estimate). Message withheld from the analysis." : "Flagged as a possible instruction. You chose to include it."}
+                        {analysis.guard?.withheld.includes(m.index)
+                          ? onInclude && <button onClick={() => onInclude(m.index)} className="press rounded-md bg-card px-2 py-0.5 font-semibold text-navy underline underline-offset-2">Include anyway</button>
+                          : onWithhold && <button onClick={() => onWithhold(m.index)} className="press rounded-md bg-card px-2 py-0.5 font-semibold text-navy underline underline-offset-2">Withhold again</button>}
+                      </span>
+                    )}
                     {mine.map((i) => {
                       const eq = effectiveQueue(i.route, i.decision);
                       if (eq === "pending") return null;
@@ -95,7 +119,7 @@ export function ThreadView({ analysis, openIds, activeId, onPick, onRetryMessage
                         </button>
                       );
                     })}
-                    {st?.status === "done" && st.requestCount === 0 && <span className="rounded-full border border-line bg-paper px-2.5 py-1 text-xs font-medium text-muted">No actionable request</span>}
+                    {st?.status === "done" && st.requestCount === 0 && !st.withheld && <span className="rounded-full border border-line bg-paper px-2.5 py-1 text-xs font-medium text-muted">No actionable request</span>}
                     {st?.status === "running" && <span className="flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-1 text-xs text-muted" role="status"><span className="spinner" /> Reading</span>}
                     {st?.status === "failed" && (
                       <span className="flex items-center gap-2 rounded-full bg-change-bg px-2.5 py-1 text-xs text-change" role="alert">

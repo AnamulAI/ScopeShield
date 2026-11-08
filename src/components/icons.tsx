@@ -48,3 +48,12 @@ export const SkipEndIcon = (p: P) => (<svg {...base} {...p}><path d="M5.5 6v12l9
 export const RestartIcon = (p: P) => (<svg {...base} {...p}><path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5" /><path d="M4.5 4.5v4h4" /></svg>);
 export const ExternalIcon = (p: P) => (<svg {...base} {...p}><path d="M9 6H6.5A1.5 1.5 0 0 0 5 7.5v10A1.5 1.5 0 0 0 6.5 19h10a1.5 1.5 0 0 0 1.5-1.5V15" /><path d="M13 5h6v6M19 5l-8 8" /></svg>);
 export const ChevronIcon = (p: P) => (<svg {...base} {...p}><path d="m7 10 5 5 5-5" /></svg>);
+
+/** Shield with an exclamation mark: Guard flagged something. */
+export const ShieldAlertIcon = (p: P) => (<svg {...base} {...p}><path d="M12 3 4.5 5.8v5.6c0 4.5 3.1 7.7 7.5 9.6 4.4-1.9 7.5-5.1 7.5-9.6V5.8L12 3Z" /><path d="M12 8.5v4.2" /><path d="M12 15.8h.01" /></svg>);
+/** Two crossing strokes: a possible conflict between two texts. */
+export const ConflictIcon = (p: P) => (<svg {...base} {...p}><path d="M5 6h6a3 3 0 0 1 3 3v9" /><path d="M19 6h-6a3 3 0 0 0-3 3v9" /><path d="m11.5 15.5-1.5 2.5-1.5-2.5M15.5 15.5 14 18l-1.500-2.500" /></svg>);
+/** Page with a lock-less fold: the masked evidence pack. */
+export const PackIcon = (p: P) => (<svg {...base} {...p}><path d="M7 3.5h7l4 4V20.5H7V3.5Z" /><path d="M14 3.5v4h4" /><path d="M9.500 12h6M9.500 15.500h4" /></svg>);
+/** Ruler-like mark for the governing clause: a section sign. */
+export const ClauseIcon = (p: P) => (<svg {...base} {...p}><path d="M14.500 6.500a3 3 0 0 0-5.500 1.500c0 3.500 6 2.500 6 6.500a3 3 0 0 1-5.500 1.500" /><path d="M8 17.500a3 3 0 0 0 5.500 1.500" /></svg>);

@@ -5,7 +5,7 @@ export interface Snapshot {
   id: string;
   title: string;
   recordedAt: string; // YYYY-MM-DD
-  credits: { extract: number; decide: number; fill: number; total: number };
+  credits: { total: number } & Record<string, number>;
   inputs: { contract: string; thread: string; clientName: string };
   analysis: Analysis;
 }

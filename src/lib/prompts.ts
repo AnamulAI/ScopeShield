@@ -77,6 +77,8 @@ export interface FillOptions {
   effort?: string;
   /** Decide's answer: did the client clearly agree to pay? */
   agreed?: boolean;
+  /** M10: the contract clause that governs the request (Rerank). It is part of the contract, so Verify can check a message that cites it. */
+  clause?: { id: string; text: string };
 }
 
 export const RISK_RUBRIC =
@@ -95,7 +97,7 @@ export function buildFillRequest(contract: string, thread: string, request: stri
     threadOffset: cpLength(prefix),
     body: {
       text: `${prefix}${thread}\n\nREQUEST TO FILL: ${request}`,
-      instructions: FILL_INSTRUCTIONS + decide + (opts.strict ? STRICT_FILL_SUFFIX : ""),
+      instructions: FILL_INSTRUCTIONS + decide + (opts.clause ? ` Governing contract clause (${opts.clause.id}): "${opts.clause.text}". If this clause excludes or limits the requested work, say so briefly in the message, in your own words.` : "") + (opts.strict ? STRICT_FILL_SUFFIX : ""),
       fields: {
         category: { type: "choice", options: ["new_feature", "revision", "bug_fix", "other"] },
         unpaid_risk: {

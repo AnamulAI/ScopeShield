@@ -11,6 +11,7 @@ export interface ChatHandle { scrollToEvidence: (spanId: string) => void }
 interface Props {
   analysis: Analysis; recorded: boolean; replay: ReturnType<typeof useReplay>;
   openIds: Set<string>; activeId: string | null; onPick: (id: string) => void; onRetryMessage: (idx: number) => void;
+  onInclude?: (idx: number) => void; onWithhold?: (idx: number) => void;
 }
 
 const ctl = "press inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold shadow-card";
@@ -20,7 +21,7 @@ const ctl = "press inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-
  * in Demo mode, a composer-style bar that holds the REPLAY controls (there is no text input).
  * Nothing here is invented: no timestamps, no presence or read status, no photos.
  */
-export const ChatWindow = forwardRef<ChatHandle, Props>(function ChatWindow({ analysis, recorded, replay, openIds, activeId, onPick, onRetryMessage }, ref) {
+export const ChatWindow = forwardRef<ChatHandle, Props>(function ChatWindow({ analysis, recorded, replay, openIds, activeId, onPick, onRetryMessage, onInclude, onWithhold }, ref) {
   const body = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false); // the reader scrolled the chat themselves: stop auto-scrolling for this replay
   const people = useMemo(() => participants(analysis.messages), [analysis.messages]);
@@ -73,7 +74,7 @@ export const ChatWindow = forwardRef<ChatHandle, Props>(function ChatWindow({ an
         onKeyDown={(e) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(e.key)) userScrolled.current = true; }}
         className="chat-canvas chat-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ThreadView analysis={analysis} openIds={openIds} activeId={activeId} onPick={onPick} onRetryMessage={onRetryMessage}
-          revealed={recorded ? replay.revealed : undefined} typingIndex={recorded ? replay.typing : null} />
+          revealed={recorded ? replay.revealed : undefined} typingIndex={recorded ? replay.typing : null} onInclude={onInclude} onWithhold={onWithhold} />
       </div>
 
       {recorded && (

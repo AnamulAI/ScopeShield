@@ -43,3 +43,5 @@ export function askQuestion(request: string, ask: AskKind): string {
 export const WITHDRAWAL_NOTE_FROM = 0.3;
 export const showWithdrawalNote = (queue: Queue | "pending", withdrawn: number): boolean =>
   queue === "needs_change_order" && withdrawn >= WITHDRAWAL_NOTE_FROM && withdrawn < THRESHOLDS.withdrawn;
+
+export const QUEUE_LABEL: Record<Queue, string> = { needs_change_order: "Needs change order", ask_me: "Ask me", agreed_extra: "Agreed extra", in_scope: "In scope", withdrawn: "Withdrawn" };

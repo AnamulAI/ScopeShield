@@ -70,7 +70,7 @@ for (const width of [1280, 375]) {
   }
   // 1b) switching samples in the same page
   await load(width, "#sample=bakery");
-  for (const title of ["Fitness app MVP", "Brand identity", "Bakery website"]) {
+  for (const title of ["Fitness app MVP", "Brand identity", "Pushy client", "Bakery website"]) {
     await ev(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(title)}).click()`);
     await sleep(900); await settle();
     const b = bad(await ev("window.__bars()"));
@@ -254,6 +254,27 @@ for (const width of [1280, 375]) {
     ok(h >= 440 && h <= (await ev("innerHeight")), `375px: chat window fits the screen (${Math.round(h)}px)`);
     ok((await ev("document.documentElement.scrollWidth")) <= width, `375px: no horizontal scroll with the chat open`);
   }
+
+
+  // ===== M9 Guard: flagged message, withheld text, Include anyway / Withhold again (Demo: recorded, no API call) =====
+  await load(width, "#sample=pushy-client");
+  const items = "document.querySelectorAll('article').length";
+  const itemTexts = "[...document.querySelectorAll('article p.font-display')].map((p) => p.textContent)";
+  ok((await ev("document.querySelectorAll('[data-guard-chip]').length")) === 1, "pushy sample: exactly one message carries the Guard chip");
+  ok((await ev("document.querySelector('#msg-7 [data-guard-chip]')?.textContent.includes('withheld')")) === true, "the flagged bubble says its message was withheld from the analysis");
+  ok((await ev("!!document.querySelector('section[aria-label=\"Safety and evidence\"]') && document.querySelector('section[aria-label=\"Safety and evidence\"]').innerText.includes('Guard flagged 1 client message')")) === true, "banner in the Safety and evidence area");
+  ok((await ev("document.querySelector('section[aria-label=\"Safety and evidence\"]').innerText.includes('estimate, not a verdict')")) === true, "Guard result is labelled an estimate");
+  const before = await ev(items);
+  ok(!(await ev(itemTexts)).some((t) => /booking/i.test(t)), "the withheld message produced no request card");
+  await ev("document.querySelector('#msg-7 [data-guard-chip] button').click()"); await sleep(600);
+  ok((await ev(items)) === before + 1 && (await ev(itemTexts)).some((t) => /booking/i.test(t)), "Include anyway shows the recorded request from that message");
+  ok((await ev("document.querySelectorAll('[data-guard-chip]').length")) === 1 && (await ev("document.querySelector('#msg-7 [data-guard-chip]').textContent.includes('You chose to include')")) === true, "the choice is recorded and shown as the user's decision");
+  await ev("[...document.querySelectorAll('#msg-7 [data-guard-chip] button')].find((b) => b.textContent.includes('Withhold again')).click()"); await sleep(500);
+  ok((await ev(items)) === before, "Withhold again removes the request again");
+  ok((await ev(apiCalls)) === 0, "Guard choices in Demo mode made no API calls");
+  await load(width, "#sample=bakery");
+  ok((await ev("document.querySelectorAll('[data-guard-chip]').length")) === 0, "benign sample: no Guard chip");
+  ok((await ev("document.querySelector('section[aria-label=\"Safety and evidence\"]').innerText.includes('No instruction to the analysis tool found')")) === true, "benign sample: Guard says nothing was found (estimate)");
 
   // header and footer
   ok((await ev("getComputedStyle(document.querySelector('header')).position")) === "sticky", "header is sticky");

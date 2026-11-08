@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClockedError, createClockedClient, type ClockedClient } from "./lib/clocked";
 import type { Snapshot } from "./lib/demo";
-import { analyze, runDecide, runFill, runMessage, runSupport, runVerify, type Analysis } from "./lib/pipeline";
+import { analyze, applyWithheld, includeMessage, runDecide, runFill, runMessage, runSupport, runVerify, withholdAgain, type Analysis } from "./lib/pipeline";
+import { runGuard } from "./lib/features";
 import { effectiveQueue, type Decision } from "./lib/routing";
 import { InputPanel, type Inputs } from "./components/InputPanel";
 import { HowItWorks } from "./components/HowItWorks";
@@ -106,6 +107,9 @@ export default function App() {
   };
   const ack = (id: string) => { const v = byId(id)?.changeOrder?.verify; if (v) { v.acknowledged = true; render(); } };
   const retryVerify = (id: string) => direct((a, i) => runVerify(a, byId(id)!, i, client, render));
+  const include = (idx: number) => direct((a, i) => includeMessage(a, idx, i, client, render));
+  const withhold = (idx: number) => { if (live.current) withholdAgain(live.current, idx, render); };
+  const retryGuard = () => direct(async (a, i) => { await runGuard(a, i, client, render); applyWithheld(a); });
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
   const modeCard = (m: Mode, title: string, line: string, meta: string) => (
@@ -156,7 +160,7 @@ export default function App() {
           <div className="mt-8"><HeroFlow /></div>
         </div>
         <div role="group" aria-label="Choose a mode" className="flex flex-col gap-3 sm:flex-row">
-          {modeCard("demo", "Demo", "Explore three recorded real results. No setup, no API calls.", "3 samples · 0 credits")}
+          {modeCard("demo", "Demo", "Explore four recorded real results. No setup, no API calls.", "4 samples · 0 credits")}
           {modeCard("live", "Run live", "Analyse your own contract and thread.", "Your text · uses credits")}
         </div>
       </section>
@@ -203,7 +207,7 @@ export default function App() {
 
         {analysis && (
           <Results key={mode === "demo" ? `demo-${demoId}` : "live"} analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
-            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify}
+            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify} onInclude={include} onWithhold={withhold} onRetryGuard={retryGuard}
             recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")} openAll={hashParams.get("open") === "1"}
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}

@@ -55,3 +55,36 @@ export interface VerifyClaim {
   evidence?: VerifyEvidence;
 }
 export interface VerifyResponse { model: string; grounded: number; ungrounded: number; verdict: string; threshold: number; claims: VerifyClaim[] }
+
+// ===== M9-M12 endpoints. Shapes verified against RAW responses from scripts/smoke-extra.ts on 8 Nov 2026 (no `data` wrapper). =====
+
+/** POST /clocked/injection (Guard). Offsets are code points of the submitted `text`. */
+export interface GuardEvidence { quote: string; start: number; end: number; confidence: number; without?: number }
+export interface GuardResponse {
+  model: string;
+  injection: number; // probability of injection
+  verdict: "injection" | "benign" | string;
+  threshold: number;
+  source: string;
+  category?: string;
+  categories?: Record<string, number>;
+  severity?: string;
+  severity_expected?: number;
+  evidence?: GuardEvidence[];
+  residual?: number;
+  residual_verdict?: string;
+}
+
+/** POST /clocked/rerank. One result per document, best first. */
+export interface RerankResult { index: number; id?: string; action: "use" | "expand" | "skip" | string; reason?: string; relevance_score: number; document_score: number; levels: Record<string, number> }
+export interface RerankResponse { model: string; results: RerankResult[]; usage?: { input_tokens: number } }
+
+/** POST /clocked/pii (Protect). `entities[].value` holds the ORIGINAL sensitive text: the app never stores or shows it. */
+export interface PiiEntity { type: string; value?: string; start: number; end: number; confidence: number; source?: string }
+export interface PiiResponse { model: string; entities: PiiEntity[]; counts: Record<string, number>; threshold: number; anonymized_text?: string }
+
+/** POST /clocked/compare. With two documents there is one pair; findings carry a passage from each side (offsets are per original document). */
+export interface ComparePassage { document: string; quote: string; start: number; end: number; confidence: number }
+export interface CompareFinding { kind?: string; kinds?: Record<string, number>; confidence?: number; a: ComparePassage; b: ComparePassage }
+export interface ComparePair { a: string; b: string; relation: "same" | "overlapping" | "conflicting" | "unrelated" | string; related: number; probabilities?: Record<string, number>; duplicates: CompareFinding[]; conflicts: CompareFinding[] }
+export interface CompareResponse { model: string; verdict: string; pairs: ComparePair[]; threshold: number }
