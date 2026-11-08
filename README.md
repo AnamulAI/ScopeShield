@@ -58,7 +58,7 @@ ScopeShield uses eight Clocked endpoints in one pipeline, grouped as **Read** (u
 - **Everything the models say is an estimate.** Guard flags, governing clauses, promise-check conflicts and masked findings are labelled as estimates, with the evidence next to them, and none of them changes a queue on its own (Guard only withholds the text of a flagged message, and you can include it anyway).
 - **Generated text is guarded twice.** A check blocks Copy when a draft contains a currency amount that is not in the contract or thread (with one stricter Regenerate), and Verify blocks Copy when a claim is contradicted.
 - **Failures.** The client retries timeouts, network errors, 409, 429 and 5xx up to four attempts with exponential backoff and jitter, always with the same `Idempotency-Key`, and never retries 400, 401, 402 or 403. After that the failure is visible and specific (input problem, credits used up, rate limit, server problem), partial results are kept, and each failed message or request has its own Retry. When credits run out, the banner offers "Switch to Demo mode". Requests run three at a time. Live runs have input caps: contract up to 6,000 characters, thread up to 12,000, up to 30 client messages.
-- **Abuse protection for the public proxy.** The API key stays server-side in a Cloudflare Pages Function. It allows only the eight endpoints (`decide`, `extract`, `fill`, `grounding`, `injection`, `rerank`, `pii`, `compare`), rejects bodies over 200 KB, rejects cross-origin browser requests, and enforces approximate daily caps (80 Clocked calls per IP and 2,000 per site per UTC day, counting every endpoint; see "Credit cost per analysis" for what that means per analysis, with a friendly "Live mode limit reached today, please use Demo mode" message).
+- **Abuse protection for the public proxy.** The API key stays server-side in a Cloudflare Pages Function. It allows only the eight endpoints (`decide`, `extract`, `fill`, `grounding`, `injection`, `rerank`, `pii`, `compare`), rejects bodies over 200 KB, rejects cross-origin browser requests, and enforces approximate daily caps (100 Clocked calls per IP and 800 per site per UTC day by default, counting every endpoint; see "Credit cost per analysis" for what that means per analysis, with a friendly "Live mode limit reached today, please use Demo mode" message).
 
 ## Thread replay in Demo mode
 
@@ -85,7 +85,7 @@ Demo mode works without a key. Developed and tested on Node 24. Other commands:
 | `npm run snapshot -- --only rerank,compare` | re-records only those parts of the demo samples (parts: guard, rerank, compare, price, fill, verify, pii) |
 | `node scripts/motion-check.mjs` | scripted browser check of animations, replay, filters and layout (needs Chrome) |
 
-Local live calls are capped like production (80 per IP per day, counted in a local KV simulation). For local evals and snapshots only, add `ALLOW_UNLIMITED_LOCAL=1` to `.dev.vars` to switch the caps off. It is read from the server environment only and must never be set in production.
+Local live calls are capped like production (100 per IP per day by default, counted in a local KV simulation). For local evals and snapshots only, add `ALLOW_UNLIMITED_LOCAL=1` to `.dev.vars` to switch the caps off. It is read from the server environment only and must never be set in production.
 
 ## Deploy (Cloudflare Pages)
 
@@ -104,7 +104,7 @@ npx wrangler pages deploy dist --project-name scopeshield --branch main
 
 - If the project name is taken, pick another one and use it in the secret and deploy commands.
 - Secrets are read by deployments created after you set them, so run the deploy command again after `secret put`.
-- **Rate limit KV.** The proxy needs the `RATE_LIMIT` KV binding and refuses live requests without it, so a deployment cannot end up uncapped by accident. It enforces 80 Clocked calls per IP and 2,000 per site per UTC day. **Counting is approximate by design.** The free KV plan limits writes per day, so the proxy reads the counters on every call but writes only with probability 1/5, adding 5 (for both counters). Individual visitors can overshoot a cap, KV is not atomic and reads can be stale, so the real cap is looser than the nominal one (in a local test the first refusal came after about 155 calls, not 80). If a KV write fails the proxy refuses the request; if a KV read fails it lets the request through.
+- **Rate limit KV.** The proxy needs the `RATE_LIMIT` KV binding and refuses live requests without it, so a deployment cannot end up uncapped by accident. It enforces 100 Clocked calls per IP and 800 per site per UTC day by default; set the `IP_DAILY_CAP` and `GLOBAL_DAILY_CAP` environment variables (positive integers, server environment only) to change them. The "Live mode limit reached today" message states the numbers in force. **Counting is approximate by design.** The free KV plan limits writes per day, so the proxy reads the counters on every call but writes only with probability 1/5, adding 5 (for both counters). Individual visitors can overshoot a cap, KV is not atomic and reads can be stale, so the real cap is looser than the nominal one (in a local test with the earlier 80-call cap the first refusal came after about 155 calls). If a KV write fails the proxy refuses the request; if a KV read fails it lets the request through.
 - **Origins.** The proxy accepts browser requests from its own host, so the pages.dev domain and any custom domain work without code changes. To allow a separately hosted front end, set the optional `ALLOWED_ORIGINS` env var to a comma-separated list of exact origins.
 - **`ALLOW_UNLIMITED_LOCAL=1`** disables the daily caps and is for local development only; leave it unset on the deployed project.
 - Demo mode needs no key and makes no API calls.
@@ -149,7 +149,7 @@ Measured from `X-Clocked-Credits`; details in [docs/credit-usage.md](docs/credit
 
 Per feature: Guard about 1 to 2 credits per analysis (6 when it flags and returns evidence), Rerank about 2 per request, Compare 2 to 5 per analysis, Protect 3 to 5 per pack, Fill plus Verify about 15 per change order. Fill, Verify and Protect run only on demand in the live app.
 
-**What that means for the daily cap.** The public proxy counts every call against 80 per IP and 2,000 per site per UTC day, nominally (counting is sampled and approximate). An analysis-only run now uses 22 to 42 calls on the sample threads, so one visitor gets about 2 to 3 analyses a day, or one full run with change orders and packs; site-wide that is roughly 50 to 90 analyses a day. Demo mode makes no calls.
+**What that means for the daily cap.** The public proxy counts every call against 100 per IP and 800 per site per UTC day by default (counting is sampled and approximate, so the real cap is looser). An analysis-only run uses 22 to 42 calls on the sample threads (a thread with a pasted code snippet adds one Inspect call per snippet, at most 3), so one visitor gets about 2 to 4 analyses a day, or one full run with every change order and pack; site-wide the 800-call cap is about 19 to 36 analyses a day. Demo mode makes no calls.
 
 ## What we learned while building it
 

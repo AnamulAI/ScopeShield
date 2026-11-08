@@ -6,13 +6,25 @@ interface Env {
   ALLOW_UNLIMITED_LOCAL?: string;
   /** Optional comma-separated exact origins (e.g. "https://app.example.com") allowed in addition to the request's own host. Environment only. */
   ALLOWED_ORIGINS?: string;
+  /** Optional overrides of the daily caps (positive integers; defaults 100 per IP and 800 per site). Environment only. */
+  IP_DAILY_CAP?: string;
+  GLOBAL_DAILY_CAP?: string;
 }
 
 const ALLOWED = new Set(["decide", "extract", "fill", "grounding", "injection", "rerank", "pii", "compare", "script"]);
 const MAX_BODY_BYTES = 200 * 1024;
-export const IP_DAILY_CAP = 80; // Clocked calls per IP per UTC day
-export const GLOBAL_DAILY_CAP = 2000; // Clocked calls for the whole site per UTC day
-export const LIMIT_MESSAGE = "Live mode limit reached today, please use Demo mode.";
+/** Defaults: 100 Clocked calls per IP and 800 for the whole site, per UTC day. Override with the IP_DAILY_CAP and GLOBAL_DAILY_CAP environment variables. */
+export const IP_DAILY_CAP = 100;
+export const GLOBAL_DAILY_CAP = 800;
+export interface Caps { ip: number; global: number }
+const positiveInt = (v: string | undefined, fallback: number) => {
+  const n = Number(v);
+  return v !== undefined && v.trim() !== "" && Number.isInteger(n) && n >= 1 ? n : fallback;
+};
+/** Caps from the server environment only (never from the request). Anything that is not a positive integer falls back to the default. */
+export const capsFrom = (env: { IP_DAILY_CAP?: string; GLOBAL_DAILY_CAP?: string }): Caps => ({ ip: positiveInt(env.IP_DAILY_CAP, IP_DAILY_CAP), global: positiveInt(env.GLOBAL_DAILY_CAP, GLOBAL_DAILY_CAP) });
+/** The user-facing message states the real numbers in force. */
+export const limitMessage = (caps: Caps) => `Live mode limit reached today, please use Demo mode. Daily limits: ${caps.ip} Clocked calls per visitor and ${caps.global} for the whole site (UTC day).`;
 const UPSTREAM = "https://clocked.rezolve.ai/clocked";
 const PASS_HEADERS = ["content-type", "x-clocked-credits", "x-clocked-cost-usd", "x-clocked-model-ms", "retry-after"];
 
@@ -61,7 +73,7 @@ export const SAMPLE_EVERY = 5;
  * - KV WRITE error (only attempted on sampled calls): fail closed, so we never allow unbounded use; this also covers an exhausted write quota.
  * `random` is injectable for tests.
  */
-export async function checkLimits(kv: KVNamespace, ip: string, now = new Date(), random: () => number = Math.random): Promise<LimitResult> {
+export async function checkLimits(kv: KVNamespace, ip: string, now = new Date(), random: () => number = Math.random, caps: Caps = { ip: IP_DAILY_CAP, global: GLOBAL_DAILY_CAP }): Promise<LimitResult> {
   const d = day(now);
   const ipKey = `rl:ip:${d}:${ip}`;
   const globalKey = `rl:global:${d}`;
@@ -71,8 +83,8 @@ export async function checkLimits(kv: KVNamespace, ip: string, now = new Date(),
   } catch {
     return { ok: true };
   }
-  if (ipCount >= IP_DAILY_CAP) return { ok: false, reason: "ip" };
-  if (globalCount >= GLOBAL_DAILY_CAP) return { ok: false, reason: "global" };
+  if (ipCount >= caps.ip) return { ok: false, reason: "ip" };
+  if (globalCount >= caps.global) return { ok: false, reason: "global" };
   if (random() < 1 / SAMPLE_EVERY) {
     try {
       const opts = { expirationTtl: 60 * 60 * 30 };
@@ -103,8 +115,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   if (env.ALLOW_UNLIMITED_LOCAL === "1") {
     // Explicit dev switch from the environment only. Not derived from the hostname, headers or query string, which a caller controls.
   } else if (env.RATE_LIMIT) {
-    const res = await checkLimits(env.RATE_LIMIT, request.headers.get("CF-Connecting-IP") ?? "unknown");
-    if (!res.ok) return json(429, LIMIT_MESSAGE, "limit_reached", { "retry-after": String(secondsToUtcMidnight(new Date())) });
+    const caps = capsFrom(env);
+    const res = await checkLimits(env.RATE_LIMIT, request.headers.get("CF-Connecting-IP") ?? "unknown", new Date(), Math.random, caps);
+    if (!res.ok) return json(429, limitMessage(caps), "limit_reached", { "retry-after": String(secondsToUtcMidnight(new Date())) });
   } else {
     // Never fail open on a missing binding (set ALLOW_UNLIMITED_LOCAL=1 in .dev.vars for local work without KV).
     if (!warnedMissingBinding) {

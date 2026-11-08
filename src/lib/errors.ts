@@ -8,8 +8,11 @@ export function describeError(kind: ErrorKind | undefined, detail?: string): Des
   switch (kind) {
     case "credits":
       return { title: "Clocked credits are used up.", hint: "Results so far are kept. You can explore the recorded demo without credits.", demo: true };
-    case "limit":
-      return { title: "Live mode limit reached today.", hint: "To keep this free demo affordable, live runs are capped per day. Please use Demo mode, or run the app yourself with your own key (see the README).", demo: true };
+    case "limit": {
+      // The proxy's own message carries the real numbers in force ("Daily limits: ..."); fall back to the defaults if it is missing.
+      const numbers = /Daily limits:[^]*$/.exec(detail ?? "")?.[0] ?? "Daily limits: 100 Clocked calls per visitor and 800 for the whole site (UTC day).";
+      return { title: "Live mode limit reached today.", hint: `Please use Demo mode, or run the app yourself with your own key (see the README). ${numbers}`, demo: true };
+    }
     case "bad_request":
       return { title: "The service rejected this input.", hint: `Shorten or simplify the text (contract up to 6,000 characters, thread up to 12,000, up to 30 client messages) and retry.${detail ? ` Detail: ${detail}` : ""}` };
     case "auth":

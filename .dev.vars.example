@@ -3,3 +3,6 @@ CLOCKED_API_KEY=
 # ALLOW_UNLIMITED_LOCAL=1
 # Optional: extra allowed browser origins for the proxy (comma separated, exact origins). The request's own host is always allowed.
 # ALLOWED_ORIGINS=https://app.example.com
+# Optional: override the daily caps of the public proxy (positive integers; defaults 100 calls per IP and 800 per site per UTC day).
+# IP_DAILY_CAP=100
+# GLOBAL_DAILY_CAP=800

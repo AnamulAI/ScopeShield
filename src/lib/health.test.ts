@@ -62,10 +62,14 @@ describe("describeError", () => {
     expect(d.demo).toBe(true);
     expect(d.hint).toContain("demo");
   });
-  it("explains the daily live-mode limit and offers Demo mode", () => {
+  it("explains the daily live-mode limit, states the numbers (from the server message, else the defaults) and offers Demo mode", () => {
     const d = describeError("limit");
     expect(d.title).toContain("Live mode limit reached today");
     expect(d.demo).toBe(true);
+    expect(d.hint).toContain("100 Clocked calls per visitor and 800 for the whole site");
+    const custom = describeError("limit", "Live mode limit reached today, please use Demo mode. Daily limits: 7 Clocked calls per visitor and 9 for the whole site (UTC day).");
+    expect(custom.hint).toContain("7 Clocked calls per visitor and 9 for the whole site");
+    expect(custom.hint).not.toContain("100 Clocked");
   });
   it("tells the user what to change for input errors", () => {
     expect(describeError("bad_request", "text too long").hint).toContain("Shorten");

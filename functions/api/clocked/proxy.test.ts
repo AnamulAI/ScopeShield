@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkLimits, GLOBAL_DAILY_CAP, IP_DAILY_CAP, onRequestPost, originAllowed, SAMPLE_EVERY } from "./[endpoint]";
+import { capsFrom, checkLimits, GLOBAL_DAILY_CAP, IP_DAILY_CAP, limitMessage, onRequestPost, originAllowed, SAMPLE_EVERY } from "./[endpoint]";
 
 class FakeKV {
   store = new Map<string, string>();
@@ -37,6 +37,29 @@ describe("originAllowed", () => {
     expect(originAllowed("https://evil.example", URL_, env)).toBe(false);
     expect(originAllowed("https://evil.example", URL_, "")).toBe(false);
     expect(originAllowed("https://evil.example", URL_, undefined)).toBe(false);
+  });
+});
+
+describe("daily cap numbers", () => {
+  it("default to 100 per IP and 800 per site", () => {
+    expect([IP_DAILY_CAP, GLOBAL_DAILY_CAP]).toEqual([100, 800]);
+    expect(capsFrom({})).toEqual({ ip: 100, global: 800 });
+  });
+  it("can be overridden from the environment with positive integers, and anything else falls back to the default", () => {
+    expect(capsFrom({ IP_DAILY_CAP: "150", GLOBAL_DAILY_CAP: "1200" })).toEqual({ ip: 150, global: 1200 });
+    for (const bad of ["", "0", "-5", "abc", "1.5", " "]) expect(capsFrom({ IP_DAILY_CAP: bad, GLOBAL_DAILY_CAP: bad }), `value "${bad}"`).toEqual({ ip: 100, global: 800 });
+    expect(capsFrom({ IP_DAILY_CAP: "7" })).toEqual({ ip: 7, global: 800 });
+  });
+  it("the limit message states the numbers actually in force", () => {
+    expect(limitMessage({ ip: 100, global: 800 })).toBe("Live mode limit reached today, please use Demo mode. Daily limits: 100 Clocked calls per visitor and 800 for the whole site (UTC day).");
+    expect(limitMessage({ ip: 7, global: 9 })).toContain("7 Clocked calls per visitor and 9 for the whole site");
+  });
+  it("checkLimits enforces custom caps, per IP and globally", async () => {
+    const k = kv();
+    for (let i = 0; i < 3; i++) expect((await checkLimits(k, "1.1.1.1", T, () => 0, { ip: 15, global: 800 })).ok).toBe(true); // always sampled: +5 each
+    expect(await checkLimits(k, "1.1.1.1", T, () => 0.99, { ip: 15, global: 800 })).toEqual({ ok: false, reason: "ip" });
+    expect((await checkLimits(k, "2.2.2.2", T, () => 0.99, { ip: 15, global: 800 })).ok).toBe(true);
+    expect(await checkLimits(k, "2.2.2.2", T, () => 0.99, { ip: 100, global: 15 })).toEqual({ ok: false, reason: "global" });
   });
 });
 
@@ -101,6 +124,14 @@ const ctx = (url: string, env: Record<string, unknown>, init: RequestInit = {}) 
 afterEach(() => vi.restoreAllMocks());
 
 describe("onRequestPost", () => {
+  it("an environment cap override is enforced and its numbers appear in the message; a request cannot change the caps", async () => {
+    const k = kv();
+    const today = new Date().toISOString().slice(0, 10);
+    k.store.set(`rl:ip:${today}:unknown`, "10");
+    const r = await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide?IP_DAILY_CAP=9999", { CLOCKED_API_KEY: "x", RATE_LIMIT: k, IP_DAILY_CAP: "10", GLOBAL_DAILY_CAP: "20" }, { headers: { "x-ip-daily-cap": "9999" } }));
+    expect(r.status).toBe(429);
+    expect(((await r.json()) as { error: string }).error).toContain("10 Clocked calls per visitor and 20 for the whole site");
+  });
   it("ALLOWED_ORIGINS comes from env only: a request header cannot add an origin", async () => {
     const r = await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() }, { headers: { Origin: "https://evil.example", "x-allowed-origins": "https://evil.example" } }));
     expect(r.status).toBe(403);
@@ -117,7 +148,7 @@ describe("onRequestPost", () => {
     k.store.set("rl:ip:" + new Date().toISOString().slice(0, 10) + ":9.9.9.9", String(IP_DAILY_CAP));
     const r = await onRequestPost(ctx("https://scopeshield.pages.dev/api/clocked/decide", { CLOCKED_API_KEY: "x", RATE_LIMIT: k }, { headers: { "CF-Connecting-IP": "9.9.9.9" } }));
     expect(r.status).toBe(429);
-    expect(await r.json()).toEqual({ error: "Live mode limit reached today, please use Demo mode.", code: "limit_reached" });
+    expect(await r.json()).toEqual({ error: "Live mode limit reached today, please use Demo mode. Daily limits: 100 Clocked calls per visitor and 800 for the whole site (UTC day).", code: "limit_reached" });
     expect(Number(r.headers.get("retry-after"))).toBeGreaterThan(0);
   });
   it("does not count rejected requests (bad endpoint) against the caps", async () => {
