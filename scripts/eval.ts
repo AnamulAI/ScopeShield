@@ -177,6 +177,7 @@ const md = [
   `| rerank | ${calls.rerank} | ${credits.rerank} |`,
   `| pii | ${calls.pii} | ${credits.pii} |`,
   `| compare | ${calls.compare} | ${credits.compare} |`,
+  `| script | ${calls.script} | ${credits.script} |`,
   `| **Total** | ${Object.values(calls).reduce((t, x) => t + x, 0)} | **${total}** |`,
   ``,
 ].join("\n") + "\n" + readFileSync("docs/eval-notes.md", "utf8");

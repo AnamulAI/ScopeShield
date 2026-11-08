@@ -2,7 +2,7 @@
 
 Run on 2026-11-08 against the live Clocked API (`npm run eval`). Cases: `evals/golden.json`. Real numbers only.
 
-**30/31 cases passed.**
+**32/33 cases passed.**
 
 | Case | Endpoint | Result | Detail |
 |---|---|---|---|
@@ -37,6 +37,8 @@ Run on 2026-11-08 against the live Clocked API (`npm run eval`). Cases: `evals/g
 | pii-benign-text-unchanged | pii | PASS | 0 finding(s) {}; masked: "Please add a blog section and change the banner colour to dark green." |
 | compare-flags-free-excluded-work | compare | PASS | 1 possible conflict(s): "Sure, I can add the blog section for you, no extra cost.  Ha" |
 | compare-benign-freelancer-messages | compare | PASS | 0 possible conflict(s) |
+| script-routine-analytics-snippet-not-harmful | script | PASS | routine (malicious 0.003, suspicious 0.025, benign administration) |
+| script-cookie-sending-snippet-flagged | script | PASS | harmful (malicious 0.992, suspicious 0.999, data exfiltration) |
 
 ## Credits used by this eval run
 
@@ -50,7 +52,8 @@ Run on 2026-11-08 against the live Clocked API (`npm run eval`). Cases: `evals/g
 | rerank | 2 | 2 |
 | pii | 2 | 4 |
 | compare | 2 | 4 |
-| **Total** | 31 | **116** |
+| script | 2 | 4 |
+| **Total** | 33 | **120** |
 
 ## Notes and history (hand-written; appended to every eval run)
 
@@ -117,3 +120,23 @@ Other things found while doing M7:
 ## Security change after M7: no hostname-based cap skip
 
 The M7 fix that skipped the daily caps on `localhost` was replaced by an explicit environment flag, `ALLOW_UNLIMITED_LOCAL=1`, read only from the server environment (`.dev.vars` locally; never set on the deployed project). The proxy ignores anything a caller controls: hostname, `Host`/`X-Forwarded-Host`, headers and query strings. Tests cover: flag off means caps are enforced even on localhost, a missing KV binding is refused even on localhost, only the exact string "1" enables the flag, and sneaky headers/query strings do nothing. Local check with no flag: 160 requests with `?ALLOW_UNLIMITED_LOCAL=1` and an `x-allow-unlimited-local` header got 153 upstream answers and then 429 `limit_reached`. The first 429 came after about 155 calls rather than 80: KV reads can be stale, so sampled increments are sometimes lost and the cap is looser than nominal. The README says so.
+
+## M9 to M12: Guard, Rerank, Protect, Compare (8 Nov 2026)
+
+Docs were read first and every endpoint was smoke-tested through the proxy (`scripts/smoke-extra.ts`) before any type was written; raw responses have no `data` wrapper. Eight golden cases were added (one positive and one benign per endpoint). **Final eval: 30/31 pass**, 116 credits; the one failure is the same WhatsApp "I can certainly" Fill case as before.
+
+- **Guard (`/injection`).** One call over the client's messages only (`source: "content"`, `evidence: true`). A classic override attempt flags (0.995) and a pushy, deadline-and-discount message does not (0.002). On the four recorded threads: three benign (0.003 to 0.004) and the Pushy client thread flagged (0.993, "instruction override", "critical") with evidence on the right message. The result is an estimate: Guard is a detector, not an enforcement boundary, and a missing evidence passage is not proof of safety. Evidence is matched to messages by code-point offsets and ignored if its offsets do not reproduce the quote. If a verdict says "injection" but no passage can be located, nothing is withheld and the page says so.
+- **What "withheld" changes.** A flagged client message is replaced by "[message withheld: possible instruction to the analysis tool]" in the state sent to Decide, Fill, Verify and the support, price and Rerank lookups. Offsets that come back from those calls are mapped back to the original thread and verified against it again, or the highlight is dropped. The flagged message is not sent to Extract. "Include anyway" is the user's recorded choice: live it runs Extract and Decide for that message only (the other requests were judged without it and are not re-run); in Demo the result was recorded in advance, so it needs no API call.
+- **Rerank (`/rerank`).** Our first call used the bare request ("add a blog section") as the query and ranked the *price* clause first and the exclusion clause last (0.02). Phrasing the query as a question about the contract plus an instruction ("a clause governs the request if it includes the requested work or excludes it") fixed it: blog and online ordering rank the "Excluded: ..." clause first (0.98, 0.95) and the banner-colour request ranks the revisions clause (0.91). The model's score is shown as an estimate. Several requests honestly get "No clause covers this request" (for example every request in the Fitness thread, whose contract has no sentence naming them). Routing thresholds are unchanged.
+- **Protect (`/pii`).** The pack is sent with `entities` set to person, email, phone, address, bank_account and credit_card, `anonymize: "replace"`. The API echoes the original values back in `entities`; the app keeps only the counts by kind and the masked text. The synthetic threads contain only first names, so the recorded packs show `person` findings and nothing else; the golden case with a name, an email and a phone number masks all three.
+- **Compare (`/compare`).** The first instruction (yours, verbatim) produced a **false positive** on the Brand thread: "Business cards are extra: $350 ... Want me to go ahead?" followed by "Of course, that's part of the guide" came back as a conflict with the exclusion list, because the passage boundary dropped the price. We tested three ways of separating the messages (blank lines, dashes, "Message n:"); all three kept the false positive. Adding one sentence to the instructions ("Saying that excluded work is extra, or quoting a separate price for it, is not a conflict; promising it for free, or promising more than the contract includes, is.") removed it while keeping the real conflict on the Pushy thread ("one more round of changes on the house" against "Includes one round of revisions"). The Bakery, Fitness and Brand threads now report no conflicts. The reported passage can still span neighbouring messages (the Pushy conflict quote covers three of Zoe's messages), which is why the UI says "Possible conflict, please review" and shows both quotes. Compare was also a clear precision risk that the benign golden case only partly covers (it passes, but one benign case proves little).
+- **An unplanned cost.** The first full recording ran through `npm run snapshot -- pushy-client`, whose argument parsing wrongly skipped the first argument, so it re-recorded all four samples (about 500 credits) instead of one. The bug is fixed (`--only` and a sample id now parse independently). The re-recordings are the ones in `public/demo/`; Fill drafts and Verify results were regenerated with the governing clause in Fill's instructions, so the recorded drafts changed too.
+
+## M13: Inspect (`/script`) on client-supplied snippets (8 Nov 2026)
+
+The docs were read first and the endpoint was smoke-tested through the proxy (11 credits) before any type was written; the raw response has no `data` wrapper (`verdict`, `malicious`, `suspicious`, `categories`, `evidence` lines).
+
+- **What it changes.** A deterministic detector looks at the client's messages only (code fence, `<script`, function or arrow with braces, `curl ... | sh`, PowerShell cmdlets), at most 3 snippets of 5,000 characters, and makes no call when none is found. Each snippet gets one Inspect call with instructions that treat it as untrusted text. The card shows the risk as a model estimate with the evidence lines. If a snippet is flagged (suspicious or harmful), Fill's instructions and next-step description change, so the drafted next step asks the client for the snippet's source and says not to install it until that is confirmed.
+- **Demo scene.** The Pushy client sample now has a synthetic tracking snippet that reads `document.cookie` and sends it to the reserved domain `collector.example.invalid`. Inspect flagged it harmful (malicious 0.992, data exfiltration) and the recorded Fill next step reads "Ask Marcus for the source of the code snippet and do not install it until that is confirmed". Only this sample was re-recorded (133 credits in total for the sample, all parts).
+- **Golden cases (2):** a routine analytics snippet is not flagged harmful (malicious 0.003, suspicious 0.025) and the cookie sender is flagged. Both pass. One benign and one malicious case say little about other code.
+- **Final eval after M13: 32/33**, 120 credits; the one failure is still the WhatsApp "I can certainly" Fill case.

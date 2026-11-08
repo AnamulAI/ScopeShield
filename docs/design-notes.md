@@ -63,3 +63,12 @@ One calm card ("Safety and evidence") between the summary and the findings, with
 - Rows are `card` with `line` hairlines; inner items use `paper` fills. The governing clause on a card is plain text with a section icon in `navy`; the clause score is small `muted` text.
 - Icons added to the same family (24-grid, 1.75 stroke): shield with exclamation (Guard flagged), two opposing arrows (conflict), page with a fold (evidence pack), section sign (governing clause).
 - The Pushy client sample is the fourth chip in the sample row; nothing else in the layout moved. The new area keeps final values in the DOM and adds no animation beyond the existing `press` hover and the `<details>` chevron.
+
+## Client-supplied script row (M13)
+
+Inspect adds one row to a request card, only when the client pasted a code snippet, and one row ("Client-supplied scripts") to the Safety and evidence area. It adds **no new tokens, hues, fonts or animation**.
+
+- The risk chip uses existing tokens: routine = `muted` on `paper-deep`, suspicious = amber (`warn` / `warn-bg`, the same "needs your review" meaning as Guard and Compare) and harmful = the existing `change` / `change-bg` pair used for "Needs change order". It is a model estimate, never a verdict.
+- Evidence lines sit in a small `<pre>` on `paper-deep` with the mono stack already in use, wrapped (no horizontal page scroll at 375 px). "Show in thread" scrolls to the snippet; the snippet is marked in the chat like other evidence.
+- The caveat "A benign result is not a safety guarantee. Read the code yourself." is always visible under the row. A failed check shows "Not checked" with Retry.
+- New icon in the same family (24-grid, 1.75 stroke): angle brackets (code).

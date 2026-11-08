@@ -34,22 +34,23 @@ Around that sits one calm "Safety and evidence" area: **Guard** screens the clie
 
 ## How ScopeShield uses Clocked
 
-ScopeShield uses eight Clocked endpoints in one pipeline, grouped as **Read** (understand the thread and the contract), **Protect** (keep the analysis and your data safe) and **Prove** (check what is said against the sources). Each output changes what the app does or shows.
+ScopeShield uses nine endpoints: Read (Extract, Decide, Fill), Protect (Guard, Protect, Inspect), Prove (Verify, Rerank, Compare). Together they form one pipeline: Read understands the thread and the contract, Protect keeps the analysis and your data safe, Prove checks what is said against the sources. Each output changes what the app does or shows.
 
 | Group | Clocked endpoint | What it decides | What changes in the app |
 |---|---|---|---|
 | Read | **Extract** (`/extract`) | Which sentences in each client message are separate requests, with their position in the thread. Also the agreement or withdrawal sentence and, for agreed work, the price quoted for that request. | Builds the request list and the evidence highlights in the thread. An empty result is shown as "No actionable request". Agreed extra cards show the agreement sentence and "Agreed price" (or "No price found in the thread"). |
 | Read | **Decide** (`/decide`) | For each request, on the contract plus the full thread: the probability that it is outside the contract, that the client clearly agreed to pay, and that they later withdrew it, plus a kind tag and an effort score. | The app applies its own thresholds to route the request to a queue, draws the probability bars, triggers the Ask me question for uncertain results, and feeds the rough hour estimate. |
-| Read | **Rerank** (`/rerank`) | Which clause of your contract governs a request. The contract is split into clauses c1..cn by a deterministic splitter; one call per active (not withdrawn) request. | The card shows "Governing clause (model estimate)" with its quote, or "No clause covers this request". The clause is passed into Fill so the change-order message can cite the exclusion, and Verify checks it like any other claim. It never changes the queue. |
 | Read | **Fill** (`/fill`) | For a change-order request: category, unpaid risk, the price quoted (if any), a short message to the client and a next step. | Creates the change-order card. Generated text is labelled "AI-generated draft". Decide's effort and agreement results are passed into Fill's instructions, so a large job with no agreement cannot be rated low risk. |
 | Protect | **Guard** (`/injection`) | Whether the client's messages try to instruct the analysis tool (ignore the rules, mark things in scope or paid, reveal prompts). One call over the client's messages only. Ordinary requests, pressure and discount asks are not injection. | A flagged message gets a warning chip in the chat and a banner. Its text is replaced by "[message withheld: possible instruction to the analysis tool]" in everything Decide, Fill, Verify and the lookups see. "Include anyway" is your recorded choice. |
 | Protect | **Protect** (`/pii`) | Names, emails, phones, addresses and bank or card numbers in an "evidence pack" assembled for one request. | Offers a masked copy to download or copy, with "Found and masked: N items (by kind)". Your original text is never altered. "Detection can miss sensitive data. Review before sharing." |
+| Protect | **Inspect** (`/script`) | Whether a code snippet the client pasted (a tracking tag, a script to install) looks routine, suspicious or harmful. Deterministic detection first (code fence, `<script`, function with braces, `curl ... \| sh`, PowerShell cmdlets); at most 3 snippets, each up to 5,000 characters; no call when there is none. The snippet is treated as untrusted text and never run. | The request card gets a "Client-supplied script" row with the risk (model estimate), the flagged lines in a code block and "Show in thread". If flagged, Fill's next step asks the client for the snippet's source and not to install it until that is confirmed. "A benign result is not a safety guarantee. Read the code yourself." |
 | Prove | **Verify** (`/grounding`) | Whether each factual claim in the generated message is supported by, contradicted by, or not stated in two named sources: the contract and the thread. | A contradicted claim blocks Copy and shows the evidence. A not-stated claim shows a note and needs one acknowledgement. Supported claims are counted. |
 | Prove | **Compare** (`/compare`) | Where your own messages may conflict with the contract, for example offering excluded work at no cost or more revisions than agreed. One call per analysis. | A "Promise check" panel lists each possible conflict with both quotes and a link into the chat, labelled "Possible conflict, please review", or "No conflicts found in your messages". Never a verdict. |
+| Prove | **Rerank** (`/rerank`) | Which clause of your contract governs a request. The contract is split into clauses c1..cn by a deterministic splitter; one call per active (not withdrawn) request. | The card shows "Governing clause (model estimate)" with its quote, or "No clause covers this request". The clause is passed into Fill so the change-order message can cite the exclusion, and Verify checks it like any other claim. It never changes the queue. |
 
 **Routing is owned by the app, not the model.** Withdrawn is checked first (withdrawal probability 0.75 or more). Otherwise outside below 0.30 is in scope; from 0.30 to below 0.70 goes to Ask me; at 0.70 or more it depends on the agreement to pay: 0.75 or more is an agreed extra, 0.25 or less needs a change order, and anything between goes to Ask me. A withdrawn request is excluded from Fill and from the Scope Health numbers.
 
-**How they work together:** Guard screens the input first. Extract locates requests, Decide judges them, Rerank ties each to a clause, Fill drafts, Verify checks the draft. Compare checks your own promises against the contract, and Protect masks the evidence you may share.
+**How they work together:** Guard screens the input first, and Inspect checks any pasted code the same way. Extract locates requests, Decide judges them, Rerank ties each to a clause, Fill drafts, Verify checks the draft. Compare checks your own promises against the contract, and Protect masks the evidence you may share.
 
 ## How uncertain results, missing information and failures are handled
 
@@ -58,7 +59,7 @@ ScopeShield uses eight Clocked endpoints in one pipeline, grouped as **Read** (u
 - **Everything the models say is an estimate.** Guard flags, governing clauses, promise-check conflicts and masked findings are labelled as estimates, with the evidence next to them, and none of them changes a queue on its own (Guard only withholds the text of a flagged message, and you can include it anyway).
 - **Generated text is guarded twice.** A check blocks Copy when a draft contains a currency amount that is not in the contract or thread (with one stricter Regenerate), and Verify blocks Copy when a claim is contradicted.
 - **Failures.** The client retries timeouts, network errors, 409, 429 and 5xx up to four attempts with exponential backoff and jitter, always with the same `Idempotency-Key`, and never retries 400, 401, 402 or 403. After that the failure is visible and specific (input problem, credits used up, rate limit, server problem), partial results are kept, and each failed message or request has its own Retry. When credits run out, the banner offers "Switch to Demo mode". Requests run three at a time. Live runs have input caps: contract up to 6,000 characters, thread up to 12,000, up to 30 client messages.
-- **Abuse protection for the public proxy.** The API key stays server-side in a Cloudflare Pages Function. It allows only the eight endpoints (`decide`, `extract`, `fill`, `grounding`, `injection`, `rerank`, `pii`, `compare`), rejects bodies over 200 KB, rejects cross-origin browser requests, and enforces approximate daily caps (100 Clocked calls per IP and 800 per site per UTC day by default, counting every endpoint; see "Credit cost per analysis" for what that means per analysis, with a friendly "Live mode limit reached today, please use Demo mode" message).
+- **Abuse protection for the public proxy.** The API key stays server-side in a Cloudflare Pages Function. It allows only the nine endpoints (`decide`, `extract`, `fill`, `grounding`, `injection`, `rerank`, `pii`, `compare`, `script`), rejects bodies over 200 KB, rejects cross-origin browser requests, and enforces approximate daily caps (100 Clocked calls per IP and 800 per site per UTC day by default, counting every endpoint; see "Credit cost per analysis" for what that means per analysis, with a friendly "Live mode limit reached today, please use Demo mode" message).
 
 ## Thread replay in Demo mode
 
@@ -118,7 +119,7 @@ npx wrangler pages deploy dist --project-name scopeshield --branch main
 
 ## Evaluation
 
-`npm run eval` runs 31 golden cases against the live Clocked API through the same client the app uses (final run: 8 November 2026). **30 of 31 pass.** The full table, with every case and its numbers, is in [docs/eval-results.md](docs/eval-results.md); how the cases evolved is in [docs/eval-notes.md](docs/eval-notes.md).
+`npm run eval` runs 33 golden cases against the live Clocked API through the same client the app uses (final run: 8 November 2026). **32 of 33 pass.** The full table, with every case and its numbers, is in [docs/eval-results.md](docs/eval-results.md); how the cases evolved is in [docs/eval-notes.md](docs/eval-notes.md).
 
 | Group | Cases | Passed | What is checked |
 |---|---|---|---|
@@ -130,8 +131,9 @@ npx wrangler pages deploy dist --project-name scopeshield --branch main
 | Rerank | 2 | 2 | a blog request finds the exclusion clause; a banner-colour request does not |
 | Protect | 2 | 2 | a name, an email and a phone number are masked; text without personal data is left unchanged |
 | Compare | 2 | 2 | offering excluded work at no cost is flagged; consistent freelancer messages are not |
+| Inspect | 2 | 2 | a routine analytics tag is not flagged harmful; a snippet that sends cookies to an outside address is |
 
-The one failure is real and left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids. One positive and one benign case per endpoint is a thin test: it shows each feature can fire and can stay quiet, not how often it is right (see Limitations). There are also **141 unit tests** in 14 files (routing, thread parsing and Unicode offsets, retry and backoff, the pipeline with mocked calls, the invented-amount check, Verify policy, Guard withholding and offset mapping, clause splitting, promise-check mapping, evidence packs, the proxy and its rate limits, replay and chat helpers).
+The one failure is real and left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids. One positive and one benign case per endpoint is a thin test: it shows each feature can fire and can stay quiet, not how often it is right (see Limitations). There are also **161 unit tests** in 15 files (routing, thread parsing and Unicode offsets, retry and backoff, the pipeline with mocked calls, the invented-amount check, Verify policy, Guard withholding and offset mapping, snippet detection and Inspect mapping, clause splitting, promise-check mapping, evidence packs, the proxy and its rate limits, replay and chat helpers).
 
 ## Credit cost per analysis
 
@@ -142,12 +144,12 @@ Measured from `X-Clocked-Credits`; details in [docs/credit-usage.md](docs/credit
 | Live analysis of the Fitness sample (17 messages, 10 from the client, 4 requests), analysis only, **before** M9 to M12 | 39 | 16 |
 | The same, **after** Guard, Rerank (one per request) and Compare were added | **46** | 22 |
 | The same, plus one change order (Fill 12, Verify 3) and one evidence pack (Protect 3) | **64** | 25 |
-| Recorded analysis-only totals: Bakery (36 messages, 9 requests) / Fitness / Brand / Pushy client | 131 / 63 / 80 / 71 | 42 / 22 / 26 / 23 |
-| Recorded totals including a change order for every eligible request and an evidence pack: Bakery / Fitness / Brand / Pushy client | 197 / 121 / 123 / 105 | |
+| Recorded analysis-only totals: Bakery (36 messages, 9 requests) / Fitness / Brand / Pushy client | 131 / 63 / 80 / 78 | 42 / 22 / 26 / 27 |
+| Recorded totals including a change order for every eligible request and an evidence pack: Bakery / Fitness / Brand / Pushy client | 197 / 121 / 123 / 133 | |
 | Recorded totals **before** M9 to M12 (Bakery / Fitness / Brand, change orders included) | 167 / 96 / 96 | |
-| The 31-case eval | 116 | 31 |
+| The 33-case eval | 120 | 33 |
 
-Per feature: Guard about 1 to 2 credits per analysis (6 when it flags and returns evidence), Rerank about 2 per request, Compare 2 to 5 per analysis, Protect 3 to 5 per pack, Fill plus Verify about 15 per change order. Fill, Verify and Protect run only on demand in the live app.
+Per feature: Inspect about 2 credits per snippet, Guard about 1 to 2 credits per analysis (6 when it flags and returns evidence), Rerank about 2 per request, Compare 2 to 5 per analysis, Protect 3 to 5 per pack, Fill plus Verify about 15 per change order. Fill, Verify and Protect run only on demand in the live app.
 
 **What that means for the daily cap.** The public proxy counts every call against 100 per IP and 800 per site per UTC day by default (counting is sampled and approximate, so the real cap is looser). An analysis-only run uses 22 to 42 calls on the sample threads (a thread with a pasted code snippet adds one Inspect call per snippet, at most 3), so one visitor gets about 2 to 4 analyses a day, or one full run with every change order and pack; site-wide the 800-call cap is about 19 to 36 analyses a day. Demo mode makes no calls.
 
@@ -179,11 +181,15 @@ Design decision: the application owns the thresholds, not the model. That made t
 - **Promise check can be wrong.** Compare gave a false positive on one of our own threads before we added a sentence to its instructions, and the quoted passage can include neighbouring messages. The check covers conflicts with the contract only, with one positive and one benign golden case behind it.
 - **Governing clauses are estimates.** Rerank sometimes says "No clause covers this request" for a request the contract clearly cares about (every request in the Fitness sample), and its best clause can be only loosely related (the Pushy sample's "make the hero photo bigger" matched the photography exclusion at 53%).
 - **Privacy masking can miss data.** Protect found only first names in our synthetic threads, so the recorded packs show little; detection can miss sensitive data, and the masked text still needs a human review before it is shared.
+- **A Compare passage can span neighbouring messages.** The quoted conflict can include the lines around the one that matters, so read both quotes before acting.
+- **Prompts were tuned on small synthetic samples.** The Rerank question wording and the Compare instruction were adjusted while looking at our own four threads (and Compare's added sentence after a false positive there), so they may behave differently on real threads.
+- **Guard, Protect and Inspect detection can miss things.** All three are estimates: a clean result means nothing was found, not that nothing is there. Inspect also only looks at snippets our simple detector recognises (at most 3 per thread, 5,000 characters each) and never runs them.
+- **A benign Inspect result is not a safety guarantee.** Read the code yourself before adding anything a client sends. Inspect's golden cases are one routine snippet and one cookie sender, which proves little about other code.
 - **Credits are not constant** (see above), and the live app's price per analysis depends on thread length and, now, on the number of requests (one Rerank call each).
 
 ## Repository layout
 
-`src/lib` holds the engine (thread parsing, routing, the Clocked client, the pipeline, prompts, checks and Verify policy), `src/components` the UI, `functions/api/clocked/[endpoint].ts` the proxy, `samples/` and `public/demo/` the synthetic threads and their recorded runs, `src/lib/features.ts`, `guard.ts`, `governing.ts`, `protect.ts`, `promise.ts` and `evidencePack.ts` the Guard, Rerank, Protect and Compare features, `evals/golden.json` the golden cases, and `scripts/` the smoke test, eval, snapshot, live-run, screenshot and motion-check tools. Design notes (palette, motion rules) are in [docs/design-notes.md](docs/design-notes.md); `docs/demo-script.md` is the shot list for the demo video.
+`src/lib` holds the engine (thread parsing, routing, the Clocked client, the pipeline, prompts, checks and Verify policy), `src/components` the UI, `functions/api/clocked/[endpoint].ts` the proxy, `samples/` and `public/demo/` the synthetic threads and their recorded runs, `src/lib/features.ts`, `guard.ts`, `governing.ts`, `protect.ts`, `promise.ts`, `evidencePack.ts` and `snippets.ts` the Guard, Rerank, Protect, Compare and Inspect features, `evals/golden.json` the golden cases, and `scripts/` the smoke test, eval, snapshot, live-run, screenshot and motion-check tools. Design notes (palette, motion rules) are in [docs/design-notes.md](docs/design-notes.md); `docs/demo-script.md` is the shot list for the demo video.
 
 ## Credits
 

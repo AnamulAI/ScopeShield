@@ -83,6 +83,9 @@ Clocked is strong at: "an approval request is not an approval", "later messages 
 - **Compare** (`/compare`): "Promise check", contract vs the freelancer's own messages; findings are labelled "Possible conflict, please review", never a verdict.
 - All four are estimates and are labelled as such. `scripts/smoke-extra.ts` prints their raw responses.
 
+## M13 addition (implemented)
+- Endpoint `script` (Inspect) is allowlisted (nine endpoints). A deterministic detector finds client-pasted code snippets (max 3, each ≤5,000 chars; none = no call); one call per snippet; the request card shows a "Client-supplied script" row (model estimate, evidence lines, caveat). A flagged snippet changes Fill's next step (ask for the source; do not install yet). Daily caps default to 100 calls/IP and 800/site per UTC day (`IP_DAILY_CAP`, `GLOBAL_DAILY_CAP` override).
+
 ## M4 additions (implemented)
 - Demo mode is the default: recorded runs of the three synthetic samples (`samples/*.json`, recorded by `npm run snapshot` into `public/demo/*.json` with date and credits), served as static files; the demo client makes NO API calls. "Run live" uses the proxy with input caps.
 - Scope Health: counts per queue and a rough unpaid-effort range (bands: <0.5 under 1 h, 0.5-1.5 about 2-6 h, 1.5-2.5 about 16-24 h, >2.5 40 h or more). WITHDRAWN and IN SCOPE never count. Money appears only if the user types an hourly rate.

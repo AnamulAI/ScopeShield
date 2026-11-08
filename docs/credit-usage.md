@@ -12,6 +12,8 @@ Each recording = Guard (1 call over the client's messages) + Extract per client 
 
 Last partial re-record (`--only script`) changed the totals above by 0 credits net; Extract and Decide results of the other parts were kept from earlier runs.
 
+Live credits spent on M13 (8 Nov 2026): smoke test 11, Pushy client re-recording 133, two golden script cases 4, final 33-case eval 120. Inspect costs about 2 credits per snippet; analysis-only Pushy (with its one snippet) is 78 credits / 27 calls.
+
 <!-- live-run -->
 ## One measured live run (7 Nov 2026, `npm run live-run -- fitness-app --fill`)
 
