@@ -8,7 +8,7 @@ interface Env {
   ALLOWED_ORIGINS?: string;
 }
 
-const ALLOWED = new Set(["decide", "extract", "fill", "grounding"]);
+const ALLOWED = new Set(["decide", "extract", "fill", "grounding", "injection", "rerank", "pii", "compare"]);
 const MAX_BODY_BYTES = 200 * 1024;
 export const IP_DAILY_CAP = 80; // Clocked calls per IP per UTC day
 export const GLOBAL_DAILY_CAP = 2000; // Clocked calls for the whole site per UTC day
