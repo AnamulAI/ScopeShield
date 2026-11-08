@@ -6,7 +6,7 @@
 //   2 IntersectionObserver missing, or animations/rAF failing
 //   3 print media and a full-page screenshot
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -327,6 +327,25 @@ for (const width of [1280, 375]) {
   ok((await ev("[...document.querySelectorAll('a[target=_blank]')].every((a) => a.rel.includes('noopener'))")) === true, "external links use rel=noopener");
   ok((await ev("document.body.innerText.includes('Powered by Clocked') && document.body.innerText.includes('Built with AI-assisted development (Claude Code)') && document.body.innerText.includes('Sample data is synthetic')")) === true, "credits present");
   ok((await ev(apiCalls)) === 0, "demo session made no API calls");
+
+  // 6) Mode cards bring the working area into view, even with "How it works" expanded and the page near the top
+  await load(width, "#how-it-works");
+  await ev("document.getElementById('how-it-works').open = true; window.scrollTo(0, 0); 1");
+  await sleep(400);
+  const clickCard = (title) => ev(`[...document.querySelectorAll('[aria-label="Choose a mode"] button')].find((b) => b.querySelector('.t-h3').textContent === ${JSON.stringify(title)}).click()`);
+  const top = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { top: r.top, h: innerHeight }; })()`);
+  const shot = async (name) => { if (!process.env.QA_SHOTS || width !== 1280) return; const r = await send("Page.captureScreenshot", { format: "png" }); writeFileSync(`docs/screenshots/qa-mode-switch-${name}.png`, Buffer.from(r.result.data, "base64")); };
+  await clickCard("Run live"); await sleep(1500);
+  const form = await top("form textarea#contract");
+  ok(form && form.top >= 0 && form.top < form.h, `${width}px: clicking Run live (panel expanded) shows the form in the viewport (top ${form && Math.round(form.top)} of ${form && form.h})`);
+  ok((await ev("!['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)")) === true, `${width}px: Run live does not move focus into a field`);
+  ok((await ev("location.hash")) === "#how-it-works" && (await ev("document.getElementById('how-it-works').open")) === true, `${width}px: hash and the open panel are untouched`);
+  await shot("run-live");
+  await ev("window.scrollTo(0, 0); 1"); await sleep(400);
+  await clickCard("Demo"); await sleep(1500);
+  const chips = await top('[aria-label="Sample threads"]');
+  ok(chips && chips.top >= 0 && chips.top < chips.h, `${width}px: clicking Demo shows the sample chips in the viewport (top ${chips && Math.round(chips.top)} of ${chips && chips.h})`);
+  await shot("demo");
 }
 console.log(`\n${checks - failures}/${checks} checks passed`);
 ws.close(); chrome.kill();

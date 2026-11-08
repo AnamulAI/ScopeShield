@@ -115,8 +115,11 @@ export default function App() {
   const retryScript = (i: number) => direct((a, inp) => retryScriptCheck(a, i, inp, client, render));
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
+  /** Bring the working area (sample chips in Demo, the input form in Run live) into view; "#demo" sits right above it. Never moves keyboard focus. */
+  const scrollToWork = () => document.getElementById("demo")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+
   const modeCard = (m: Mode, title: string, line: string, meta: string) => (
-    <button type="button" aria-pressed={mode === m} onClick={() => switchMode(m)}
+    <button type="button" aria-pressed={mode === m} onClick={() => { switchMode(m); scrollToWork(); }}
       className={`group flex flex-1 flex-col items-start gap-1 rounded-2xl border p-4 text-left press sm:p-5 ${mode === m ? "border-navy bg-navy text-paper shadow-lift" : "border-line bg-card shadow-card hover:border-navy/40"}`}>
       <span className="flex w-full items-center justify-between gap-3">
         <span className="t-h3">{title}</span>
@@ -132,7 +135,7 @@ export default function App() {
   const goDemo = (e: React.MouseEvent) => {
     e.preventDefault();
     switchMode("demo");
-    document.getElementById("demo")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    scrollToWork();
   };
 
   return (
