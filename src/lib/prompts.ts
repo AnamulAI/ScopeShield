@@ -79,6 +79,8 @@ export interface FillOptions {
   agreed?: boolean;
   /** M10: the contract clause that governs the request (Rerank). It is part of the contract, so Verify can check a message that cites it. */
   clause?: { id: string; text: string };
+  /** M13 Inspect: the client supplied a code snippet with this request and a code check estimated it suspicious or harmful. */
+  scriptRisk?: "suspicious" | "harmful";
 }
 
 export const RISK_RUBRIC =
@@ -97,7 +99,7 @@ export function buildFillRequest(contract: string, thread: string, request: stri
     threadOffset: cpLength(prefix),
     body: {
       text: `${prefix}${thread}\n\nREQUEST TO FILL: ${request}`,
-      instructions: FILL_INSTRUCTIONS + decide + (opts.clause ? ` Governing contract clause (${opts.clause.id}): "${opts.clause.text}". If this clause excludes or limits the requested work, say so briefly in the message, in your own words.` : "") + (opts.strict ? STRICT_FILL_SUFFIX : ""),
+      instructions: FILL_INSTRUCTIONS + decide + (opts.clause ? ` Governing contract clause (${opts.clause.id}): "${opts.clause.text}". If this clause excludes or limits the requested work, say so briefly in the message, in your own words.` : "") + (opts.scriptRisk ? ` The client supplied a code snippet with this request, and a code check estimated that it may be ${opts.scriptRisk}. The next step must be to ask the client for the snippet's source and not to install it until that is confirmed.` : "") + (opts.strict ? STRICT_FILL_SUFFIX : ""),
       fields: {
         category: { type: "choice", options: ["new_feature", "revision", "bug_fix", "other"] },
         unpaid_risk: {
@@ -120,7 +122,9 @@ export function buildFillRequest(contract: string, thread: string, request: stri
           type: "generate",
           format: "text",
           max_tokens: 60,
-          description: `Exactly one imperative sentence addressed to the freelancer (use "you" or no subject), specific to ${r}, in the form: 'Send ${client} a quote for "${r.slice(1, -1)}" and wait for a written yes before starting.' No third person, and no vague phrases such as "the price will be confirmed".`,
+          description: opts.scriptRisk
+            ? `Exactly one imperative sentence addressed to the freelancer (use "you" or no subject): ask ${client} for the source of the code snippet they supplied and do not install it until that is confirmed. No third person, and no vague phrases.`
+            : `Exactly one imperative sentence addressed to the freelancer (use "you" or no subject), specific to ${r}, in the form: 'Send ${client} a quote for "${r.slice(1, -1)}" and wait for a written yes before starting.' No third person, and no vague phrases such as "the price will be confirmed".`,
         },
       },
     },

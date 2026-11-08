@@ -88,3 +88,17 @@ export interface ComparePassage { document: string; quote: string; start: number
 export interface CompareFinding { kind?: string; kinds?: Record<string, number>; confidence?: number; a: ComparePassage; b: ComparePassage }
 export interface ComparePair { a: string; b: string; relation: "same" | "overlapping" | "conflicting" | "unrelated" | string; related: number; probabilities?: Record<string, number>; duplicates: CompareFinding[]; conflicts: CompareFinding[] }
 export interface CompareResponse { model: string; verdict: string; pairs: ComparePair[]; threshold: number }
+
+/** POST /clocked/script (Inspect). Verified against raw responses on 8 Nov 2026. `evidence[].start/end` are code points of the submitted `script`. */
+export interface ScriptEvidence { line: string; start: number; end: number; confidence: number }
+export interface ScriptResponse {
+  model: string;
+  /** probabilities, 0-1 */
+  malicious: number;
+  suspicious: number;
+  verdict: "benign" | "suspicious" | "malicious" | string;
+  threshold: number;
+  category?: string;
+  severity?: string;
+  evidence?: ScriptEvidence[];
+}

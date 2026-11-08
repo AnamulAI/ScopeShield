@@ -1,11 +1,12 @@
 // M9-M12 feature runs. Each call changes what the app does or shows; model judgments are estimates, never facts.
 import type { ClockedClient } from "./clocked";
 import { ClockedError } from "./clocked";
-import type { CompareResponse, GuardResponse, PiiResponse, RerankResponse } from "./clocked-types";
+import type { CompareResponse, GuardResponse, PiiResponse, RerankResponse, ScriptResponse } from "./clocked-types";
 import { addUsage, shapeError, type Analysis, type Inputs, type RequestItem } from "./base";
 import { buildRerankRequest, pickGoverning, splitClauses } from "./governing";
 import { buildGuardInput, buildGuardRequest, mapGuardEvidence } from "./guard";
 import { buildPiiRequest, toPack } from "./protect";
+import { buildInspectRequest, detectSnippets, mapScriptEvidence, riskOf, type Snippet } from "./snippets";
 import { buildPromiseInput, buildPromiseRequest, toConflicts } from "./promise";
 
 const kindOf = (e: unknown) => (e instanceof ClockedError ? e.kind : undefined);
@@ -84,4 +85,42 @@ export async function runProtect(a: Analysis, itemId: string, packText: string, 
     a.packs[itemId] = { text: packText, status: "failed", error: (e as Error).message };
   }
   emit();
+}
+
+/**
+ * M13 Inspect: one call per client-supplied code snippet (at most 3, each up to 5,000 characters).
+ * No snippet in the client's messages means no API call. The result is a model estimate, never a safety guarantee.
+ */
+export async function runScriptChecks(a: Analysis, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  const scan = detectSnippets(a.messages);
+  a.scriptsSkipped = scan.skipped;
+  a.scripts = scan.snippets.map((sn) => ({ messageIndex: sn.messageIndex, start: sn.start, end: sn.end, status: "running" as const }));
+  if (scan.snippets.length === 0) return;
+  emit();
+  await Promise.all(scan.snippets.map((sn, i) => checkSnippet(a, i, sn, inputs, client, emit)));
+}
+
+async function checkSnippet(a: Analysis, i: number, sn: Snippet, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  const rec = a.scripts![i];
+  rec.status = "running";
+  rec.error = undefined;
+  emit();
+  try {
+    const { data, usage } = await client.call<ScriptResponse>("script", buildInspectRequest(sn.text));
+    addUsage(a, "script", usage);
+    if (typeof data.malicious !== "number" || typeof data.suspicious !== "number" || !data.verdict) throw shapeError("script");
+    rec.result = { risk: riskOf(data), malicious: data.malicious, suspicious: data.suspicious, category: data.category, severity: data.severity };
+    rec.evidence = mapScriptEvidence(sn, inputs.thread, data.evidence ?? []);
+    rec.status = "done";
+  } catch (e) {
+    rec.status = "failed";
+    rec.error = (e as Error).message;
+  }
+  emit();
+}
+
+/** Retry one snippet's check (the snippets are re-detected from the thread, so the index is stable). */
+export async function retryScriptCheck(a: Analysis, i: number, inputs: Inputs, client: ClockedClient, emit: () => void) {
+  const sn = detectSnippets(a.messages).snippets[i];
+  if (sn && a.scripts?.[i]) await checkSnippet(a, i, sn, inputs, client, emit);
 }

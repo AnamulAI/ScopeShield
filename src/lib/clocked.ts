@@ -24,7 +24,7 @@ export interface ClientOptions {
 }
 
 export interface CallResult<T> { data: T; usage: ClockedUsage | null; attempts: number }
-export type Endpoint = "decide" | "extract" | "fill" | "grounding" | "injection" | "rerank" | "pii" | "compare";
+export type Endpoint = "decide" | "extract" | "fill" | "grounding" | "injection" | "rerank" | "pii" | "compare" | "script";
 
 const RETRYABLE: ReadonlySet<ErrorKind> = new Set(["conflict", "rate_limit", "server", "timeout", "network"]);
 

@@ -6,7 +6,8 @@ import { inventedAmounts } from "./checks";
 import { effortLabel } from "./health";
 import { buildDecideRequest, buildExtractRequest, buildFillRequest, buildPriceRequest, buildSupportRequest, buildVerifyRequest } from "./prompts";
 import { toVerifiedClaims } from "./verify";
-import { runGoverning, runGuard, runPromiseCheck } from "./features";
+import { runGoverning, runGuard, runPromiseCheck, runScriptChecks } from "./features";
+import { isFlagged } from "./snippets";
 import { splitClauses } from "./governing";
 import { route, THRESHOLDS, type Decision, type RouteResult } from "./routing";
 import { cpLength, parseThread, sliceCp, toThreadOffsets, type Message } from "./thread";
@@ -167,7 +168,7 @@ export async function analyze(inputs: Inputs, client: ClockedClient, onUpdate: (
   const a: Analysis = { messages, messageStates: clientMsgs.map((m) => ({ messageIndex: m.index, status: "pending" })), items: [], usage: emptyUsage(), clauses: splitClauses(inputs.contract) };
   const emit = () => onUpdate(a);
   emit();
-  const promise = runPromiseCheck(a, inputs, client, emit); // independent of the client's messages: starts at once
+  const promise = Promise.all([runPromiseCheck(a, inputs, client, emit), runScriptChecks(a, inputs, client, emit)]); // independent of the extraction: start at once
   await runGuard(a, inputs, client, emit);
   applyWithheld(a);
   const withheld = new Set(a.guard?.withheld ?? []);
@@ -215,7 +216,7 @@ export function withholdAgain(a: Analysis, messageIndex: number, emit: () => voi
   emit();
 }
 
-export interface FillContext { effortScore?: number; agreed?: boolean; /** M10: the governing clause, so the message can cite it */ clause?: { id: string; text: string } }
+export interface FillContext { effortScore?: number; agreed?: boolean; /** M13: a code snippet in this request's message was estimated suspicious or harmful */ scriptRisk?: "suspicious" | "harmful"; /** M10: the governing clause, so the message can cite it */ clause?: { id: string; text: string } }
 
 export async function fillChangeOrder(client: ClockedClient, inputs: Inputs, request: string, strict = false, ctx: FillContext = {}): Promise<ChangeOrder> {
   const { body, threadOffset } = buildFillRequest(inputs.contract, inputs.thread, request, {
@@ -224,6 +225,7 @@ export async function fillChangeOrder(client: ClockedClient, inputs: Inputs, req
     effort: ctx.effortScore === undefined ? undefined : effortLabel(ctx.effortScore),
     agreed: ctx.agreed,
     clause: ctx.clause,
+    scriptRisk: ctx.scriptRisk,
   });
   const { data, usage } = await client.call<FillResponse>("fill", body);
   const f = data.fields;
@@ -288,7 +290,10 @@ export async function runFill(a: Analysis, item: RequestItem, rawInputs: Inputs,
     if (!item.governing) await runGoverning(a, item, rawInputs, client, emit); // M10: make sure the governing clause is known first
     const g = item.governing;
     const clause = g?.status === "done" && g.clauseId && g.text ? { id: g.clauseId, text: g.text } : undefined;
-    const data = await fillChangeOrder(client, inputs, item.text, regenerate, { ...(v ? { effortScore: v.effort, agreed: v.paid >= THRESHOLDS.paidYes } : {}), clause });
+    // M13: a flagged snippet in this request's own message changes the drafted next step (ask for the source; do not install it yet)
+    const flagged = a.scripts?.find((sc) => sc.messageIndex === item.messageIndex && sc.status === "done" && isFlagged(sc.result?.risk));
+    const scriptRisk = flagged?.result?.risk === "harmful" ? "harmful" : flagged ? "suspicious" : undefined;
+    const data = await fillChangeOrder(client, inputs, item.text, regenerate, { ...(v ? { effortScore: v.effort, agreed: v.paid >= THRESHOLDS.paidYes } : {}), clause, scriptRisk });
     addUsage(a, "fill", data.usage);
     item.changeOrder = { status: "done", data, regenerated: item.changeOrder.regenerated };
     emit();

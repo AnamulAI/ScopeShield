@@ -5,6 +5,7 @@ import type { GuardFlag } from "./guard";
 import { withholdMessages } from "./guard";
 import type { Clause, Governing } from "./governing";
 import type { PromiseCheck } from "./promise";
+import type { ScriptCheck } from "./snippets";
 import type { EvidencePack } from "./protect";
 import type { Decision, RouteResult } from "./routing";
 import type { Message } from "./thread";
@@ -79,7 +80,7 @@ export interface GuardState {
   includedResults?: Record<number, { items: RequestItem[]; state: MessageState }>;
 }
 
-export type UsageKey = "extract" | "decide" | "fill" | "price" | "verify" | "guard" | "rerank" | "pii" | "compare";
+export type UsageKey = "extract" | "decide" | "fill" | "price" | "verify" | "guard" | "rerank" | "pii" | "compare" | "script";
 
 export interface Analysis {
   messages: Message[];
@@ -93,11 +94,15 @@ export interface Analysis {
   clauses?: Clause[];
   /** M12 Compare: the freelancer's own statements checked against the contract */
   promiseCheck?: PromiseCheck;
+  /** M13 Inspect: code snippets the client pasted, and the model's estimate for each */
+  scripts?: ScriptCheck[];
+  /** snippets found but not checked (more than 3, or longer than 5,000 characters) */
+  scriptsSkipped?: number;
   /** M11 Protect: privacy-safe evidence packs by request id */
   packs?: Record<string, EvidencePack>;
 }
 
-export const emptyUsage = (): Analysis["usage"] => ({ extract: { calls: 0, credits: 0 }, decide: { calls: 0, credits: 0 }, fill: { calls: 0, credits: 0 }, price: { calls: 0, credits: 0 }, verify: { calls: 0, credits: 0 }, guard: { calls: 0, credits: 0 }, rerank: { calls: 0, credits: 0 }, pii: { calls: 0, credits: 0 }, compare: { calls: 0, credits: 0 } });
+export const emptyUsage = (): Analysis["usage"] => ({ extract: { calls: 0, credits: 0 }, decide: { calls: 0, credits: 0 }, fill: { calls: 0, credits: 0 }, price: { calls: 0, credits: 0 }, verify: { calls: 0, credits: 0 }, guard: { calls: 0, credits: 0 }, rerank: { calls: 0, credits: 0 }, pii: { calls: 0, credits: 0 }, compare: { calls: 0, credits: 0 }, script: { calls: 0, credits: 0 } });
 export const totalCredits = (u: Analysis["usage"]) => (Object.keys(u) as UsageKey[]).reduce((t, k) => t + (u[k]?.credits ?? 0), 0);
 
 export const addUsage = (a: Analysis, ep: keyof Analysis["usage"], u: ClockedUsage | null) => {
