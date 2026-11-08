@@ -83,6 +83,8 @@ await elementShot("desktop-thread-chat-replay", 1280, "#sample=brand-studio", { 
 await elementShot("mobile-thread-tab", 375, "#sample=bakery");
 await elementShot("desktop-thread-chat-guard", 1280, "#sample=pushy-client", { pre: "(() => { const m = document.querySelector('#msg-7'); const b = document.querySelector('#chat-window [role=log]'); b.scrollTop = m.getBoundingClientRect().top - b.getBoundingClientRect().top + b.scrollTop - 90; })()" });
 await elementShot("safety-evidence", 1280, "#sample=pushy-client", { selector: 'section[aria-label="Safety and evidence"]', pre: "(() => { document.getElementById('evidence-pack').open = true; window.scrollBy(0, -70); })()", maxHeight: 1500 });
+await elementShot("governing-clause", 1280, "#sample=pushy-client", { selector: "#card-12-0", pre: "window.scrollBy(0, -90)", maxHeight: 1400 });
+await elementShot("evidence-pack-open", 1280, "#sample=pushy-client", { selector: "#evidence-pack", pre: "(() => { const d = document.getElementById('evidence-pack'); d.open = true; const sel = d.querySelector('select'); if (sel) { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, '12-0'); sel.dispatchEvent(new Event('change', { bubbles: true })); } window.scrollBy(0, -90); })()", wait: 900, maxHeight: 1400 });
 await elementShot("client-supplied-script", 1280, "#sample=pushy-client", { selector: "[data-script-row]", pre: "window.scrollBy(0, -90)", maxHeight: 700 });
 await send("Emulation.setEmulatedMedia", { features: [] });
 await heroClip("hero-mid-animation", 1280, { freezeAt: 1500 });
