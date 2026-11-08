@@ -19,6 +19,7 @@ interface Props {
   onRegenerate: (id: string) => void; onRetrySupport: (id: string) => void;
   onAck: (id: string) => void; onRetryVerify: (id: string) => void;
   onInclude: (messageIndex: number) => void; onWithhold: (messageIndex: number) => void; onRetryGuard: () => void;
+  onRetryPromise: () => void; onMakePack: (itemId: string) => void;
   recorded?: boolean; onSwitchDemo?: () => void;
   /** Demo only: shown when the current sample has no Ask me item. */
   askHint?: { onOpen: () => void };
@@ -26,7 +27,7 @@ interface Props {
   openAll?: boolean;
 }
 
-export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, onInclude, onWithhold, onRetryGuard, recorded, onSwitchDemo, askHint, openAll }: Props) {
+export function Results({ analysis, running, onRetryItem, onRetryMessage, onDecide, onPrepare, onPrepareAll, onRegenerate, onRetrySupport, onAck, onRetryVerify, onInclude, onWithhold, onRetryGuard, onRetryPromise, onMakePack, recorded, onSwitchDemo, askHint, openAll }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<"findings" | "thread">("findings");
   const timer = useRef<number>(0);
@@ -114,7 +115,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
         {described && <ErrorBanner described={described} failures={finished ? failures : 0} onSwitchDemo={onSwitchDemo} />}
       </div>
 
-      <SafetyEvidence analysis={analysis} recorded={!!recorded} onInclude={onInclude} onWithhold={onWithhold} onRetryGuard={onRetryGuard} />
+      <SafetyEvidence analysis={analysis} recorded={!!recorded} onInclude={onInclude} onWithhold={onWithhold} onRetryGuard={onRetryGuard} onShowSpan={(id) => focus(id, "card")} onRetryPromise={onRetryPromise} onMakePack={onMakePack} />
 
       <div className="flex gap-2 lg:hidden" role="group" aria-label="Show findings or thread">
         {(["findings", "thread"] as const).map((t) => (
@@ -201,7 +202,7 @@ export function Results({ analysis, running, onRetryItem, onRetryMessage, onDeci
       </div>
 
       <footer className="border-t border-line pt-4 text-xs leading-5 text-muted">
-        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink tnum">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, change orders {analysis.usage.fill.credits}, verify {analysis.usage.verify?.credits ?? 0}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
+        {recorded ? "Credits used to record this run" : "Credits used this run"}: <b className="text-ink tnum">{totalCredits(analysis.usage)}</b> (read {analysis.usage.extract.credits}, check {analysis.usage.decide.credits}, agreed prices {analysis.usage.price?.credits ?? 0}, guard {analysis.usage.guard?.credits ?? 0}, clauses {analysis.usage.rerank?.credits ?? 0}, promise check {analysis.usage.compare?.credits ?? 0}, change orders {analysis.usage.fill.credits}, verify {analysis.usage.verify?.credits ?? 0}, privacy packs {analysis.usage.pii?.credits ?? 0}). Effort labels are rough estimates, not quotes. Probabilities come from the Clocked API; the routing thresholds are this app’s.
       </footer>
     </section>
   );

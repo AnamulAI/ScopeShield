@@ -1,19 +1,39 @@
-import type { Analysis } from "../lib/pipeline";
+import { totalCredits, type Analysis } from "../lib/pipeline";
 
-const ROWS = [
-  ["Extract", "Which sentences in each client message are separate requests (and where they sit in the thread). Also finds the agreement or withdrawal sentence, and the quoted price for Agreed extra items.", "Builds the request list, highlights the client’s exact sentence in the thread, and shows “No actionable request” when nothing is found."],
-  ["Decide", "For each request, the probability that it is outside the contract, that the client agreed to pay, and that they later withdrew it. Also a kind tag and an effort score.", "This app applies its own thresholds to route each request to a queue, draws the probability bars, and feeds the rough effort estimate. Uncertain results go to Ask me."],
-  ["Fill", "For a request that needs a change order: category, unpaid risk, the price quoted (if any), a drafted client message and a next step.", "Creates the change-order card (collapsed until you open it). Generated text is labelled as an AI-generated draft, and Copy is blocked if it contains an amount that is not in the thread."],
-  ["Verify", "Whether each factual claim in a generated change-order message is supported by the contract and the thread (two named sources), contradicted by them, or not stated in them.", "A contradicted claim blocks Copy and shows the claim with its evidence. A not-found claim shows an amber note and asks you to confirm you have read it. Evidence passages are highlighted in the thread. The next step is not checked."],
-] as const;
+type Row = readonly [endpoint: string, decides: string, changes: string];
+const GROUPS: ReadonlyArray<{ name: string; rows: readonly Row[] }> = [
+  {
+    name: "Read",
+    rows: [
+      ["Extract", "Which sentences in each client message are separate requests (and where they sit in the thread). Also finds the agreement or withdrawal sentence, and the quoted price for Agreed extra items.", "Builds the request list, highlights the client’s exact sentence in the thread, and shows “No actionable request” when nothing is found."],
+      ["Decide", "For each request, the probability that it is outside the contract, that the client agreed to pay, and that they later withdrew it. Also a kind tag and an effort score.", "This app applies its own thresholds to route each request to a queue, draws the probability bars, and feeds the rough effort estimate. Uncertain results go to Ask me."],
+      ["Rerank", "Which clause of your contract governs a request (the contract is split into clauses; one call per active request).", "Shows the “Governing clause” on the card, or “No clause covers this request”, and passes the clause into Fill so a change-order message can cite the exclusion. It never changes the queue."],
+      ["Fill", "For a request that needs a change order: category, unpaid risk, the price quoted (if any), a drafted client message and a next step.", "Creates the change-order card (collapsed until you open it). Generated text is labelled as an AI-generated draft, and Copy is blocked if it contains an amount that is not in the thread."],
+    ],
+  },
+  {
+    name: "Protect",
+    rows: [
+      ["Guard", "Whether the client’s messages try to instruct the analysis tool itself (ignore the rules, mark things in scope or paid). Ordinary requests, pressure and discount asks are not injection.", "A flagged message gets a warning chip, and its text is replaced by a withheld notice before Decide, Fill and Verify see the thread. “Include anyway” is your recorded choice."],
+      ["Protect (PII)", "Names, emails, phone numbers, addresses and bank or card numbers in a privacy-safe evidence pack for one request.", "Offers a masked copy of the pack to download or copy, with the number of items found and masked. Your original text is never changed. Detection can miss sensitive data."],
+    ],
+  },
+  {
+    name: "Prove",
+    rows: [
+      ["Verify", "Whether each factual claim in a generated change-order message is supported by the contract and the thread (two named sources), contradicted by them, or not stated in them.", "A contradicted claim blocks Copy and shows the claim with its evidence. A not-found claim shows an amber note and asks you to confirm you have read it. Evidence passages are highlighted in the thread. The next step is not checked."],
+      ["Compare", "Where your own messages may conflict with the contract, for example offering excluded work at no cost or more revisions than agreed.", "A “Promise check” lists each possible conflict with both quotes and a link to the message. It is labelled “Possible conflict, please review”, never a verdict."],
+    ],
+  },
+];
 
 export function HowItWorks({ analysis, recorded }: { analysis: Analysis | null; recorded: boolean }) {
   const u = analysis?.usage;
-  const total = u ? u.extract.credits + u.decide.credits + u.fill.credits + (u.price?.credits ?? 0) + (u.verify?.credits ?? 0) : 0;
+  const total = u ? totalCredits(u) : 0;
   return (
     <details id="how-it-works" className="group surface scroll-mt-20">
       <summary className="flex list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold">
-        <span className="flex flex-wrap items-baseline gap-x-3"><span className="t-h3">How it works</span><span className="font-normal text-muted">four Clocked endpoints, 30 seconds</span></span>
+        <span className="flex flex-wrap items-baseline gap-x-3"><span className="t-h3">How it works</span><span className="font-normal text-muted">eight Clocked endpoints: Read, Protect, Prove</span></span>
         <span aria-hidden className="text-muted transition-transform group-open:rotate-180">▾</span>
       </summary>
       <div className="space-y-4 border-t border-line px-5 py-5 text-sm leading-6">
@@ -22,16 +42,19 @@ export function HowItWorks({ analysis, recorded }: { analysis: Analysis | null; 
           <table className="w-full min-w-[34rem] border-collapse text-left text-xs sm:text-sm">
             <thead><tr className="border-b border-line text-muted t-eyebrow"><th className="py-2 pr-3 font-semibold">Clocked endpoint</th><th className="py-2 pr-3 font-semibold">What it decides</th><th className="py-2 font-semibold">What changes in the app</th></tr></thead>
             <tbody>
-              {ROWS.map(([ep, decides, changes]) => (
-                <tr key={ep} className="border-b border-line/60 align-top"><td className="py-3 pr-4 font-display text-base font-semibold">{ep}</td><td className="py-3 pr-4">{decides}</td><td className="py-3">{changes}</td></tr>
-              ))}
+              {GROUPS.flatMap((g) => [
+                <tr key={g.name} className="bg-paper-deep/60"><th colSpan={3} className="t-eyebrow px-2 py-2 text-left text-muted">{g.name}</th></tr>,
+                ...g.rows.map(([ep, decides, changes]) => (
+                  <tr key={ep} className="border-b border-line/60 align-top"><td className="py-3 pr-4 font-display text-base font-semibold">{ep}</td><td className="py-3 pr-4">{decides}</td><td className="py-3">{changes}</td></tr>
+                )),
+              ])}
             </tbody>
           </table>
         </div>
         <p className="text-muted"><b className="text-ink">Not decided by Clocked:</b> the queue thresholds (30% / 70% scope, 25% / 75% payment, 75% withdrawn), the hour bands and the Copy block are rules in this app. Your answers to Ask me questions are yours.</p>
         <p>
           <b>{recorded ? "Credits used to record this analysis" : "Credits used by this analysis"}:</b>{" "}
-          {u ? <>{total} (Extract {u.extract.calls} calls / {u.extract.credits} credits, Decide {u.decide.calls} / {u.decide.credits}, Agreed prices {u.price?.calls ?? 0} / {u.price?.credits ?? 0}, Fill {u.fill.calls} / {u.fill.credits}, Verify {u.verify?.calls ?? 0} / {u.verify?.credits ?? 0})</> : "nothing analysed yet"}
+          {u ? <>{total} (Extract {u.extract.calls} calls / {u.extract.credits} credits, Decide {u.decide.calls} / {u.decide.credits}, Agreed prices {u.price?.calls ?? 0} / {u.price?.credits ?? 0}, Guard {u.guard?.calls ?? 0} / {u.guard?.credits ?? 0}, Rerank {u.rerank?.calls ?? 0} / {u.rerank?.credits ?? 0}, Compare {u.compare?.calls ?? 0} / {u.compare?.credits ?? 0}, Fill {u.fill.calls} / {u.fill.credits}, Verify {u.verify?.calls ?? 0} / {u.verify?.credits ?? 0}, Protect {u.pii?.calls ?? 0} / {u.pii?.credits ?? 0})</> : "nothing analysed yet"}
         </p>
       </div>
     </details>

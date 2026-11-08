@@ -54,3 +54,12 @@ Avatar fills (cream initials) are token references too, assigned by order of fir
 ## Contrast (WCAG AA, 4.5:1 for text)
 
 Lowest ratio found: **5.39:1** (Withdrawn chip, `#5b5e66` on `#ebeae7`). Others: Needs change order chip 5.43, In scope chip 5.78, Agreed extra chip 5.82, name labels on the sand canvas 5.88, muted on paper-deep 6.23, avatar initials 6.35 or more, client bubble text 15.8, text on the navy bubbles 12.7 (paper on navy), muted captions 6.9 on paper and 7.7 on card, primary replay button 12.7, secondary replay button 14.2.
+
+## Safety and evidence area (M9 to M12)
+
+One calm card ("Safety and evidence") between the summary and the findings, with three rows: Guard, Promise check and the privacy-safe evidence pack (collapsed by default). It adds **no new tokens, hues or fonts**.
+
+- **Amber (`warn` / `warn-bg`) means "this needs your review"**, never a verdict: the Guard banner and chip, each "Possible conflict, please review" item, the "Detection can miss sensitive data" note, and the marks for flagged and conflicting passages in the chat (dashed, like the other secondary evidence marks). `warn` on `warn-bg` is 6.7:1.
+- Rows are `card` with `line` hairlines; inner items use `paper` fills. The governing clause on a card is plain text with a section icon in `navy`; the clause score is small `muted` text.
+- Icons added to the same family (24-grid, 1.75 stroke): shield with exclamation (Guard flagged), two opposing arrows (conflict), page with a fold (evidence pack), section sign (governing clause).
+- The Pushy client sample is the fourth chip in the sample row; nothing else in the layout moved. The new area keeps final values in the DOM and adds no animation beyond the existing `press` hover and the `<details>` chevron.

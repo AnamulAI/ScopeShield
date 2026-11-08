@@ -42,15 +42,15 @@ Run on 2026-11-08 against the live Clocked API (`npm run eval`). Cases: `evals/g
 
 | Endpoint | Calls | Credits |
 |---|---|---|
-| extract | 5 | 22 |
-| decide | 9 | 18 |
-| fill | 7 | 72 |
-| verify | 2 | 6 |
-| guard | 2 | 6 |
-| rerank | 2 | 4 |
-| pii | 2 | 5 |
-| compare | 2 | 7 |
-| **Total** | 31 | **140** |
+| extract | 5 | 17 |
+| decide | 9 | 14 |
+| fill | 7 | 66 |
+| verify | 2 | 5 |
+| guard | 2 | 4 |
+| rerank | 2 | 2 |
+| pii | 2 | 4 |
+| compare | 2 | 4 |
+| **Total** | 31 | **116** |
 
 ## Notes and history (hand-written; appended to every eval run)
 

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClockedError, createClockedClient, type ClockedClient } from "./lib/clocked";
 import type { Snapshot } from "./lib/demo";
-import { analyze, applyWithheld, includeMessage, runDecide, runFill, runMessage, runSupport, runVerify, withholdAgain, type Analysis } from "./lib/pipeline";
-import { runGuard } from "./lib/features";
+import { analyze, applyWithheld, emptyUsage, includeMessage, runDecide, runFill, runMessage, runSupport, runVerify, withholdAgain, type Analysis } from "./lib/pipeline";
+import { runGuard, runProtect, runPromiseCheck } from "./lib/features";
+import { buildPackText } from "./lib/evidencePack";
 import { effectiveQueue, type Decision } from "./lib/routing";
 import { InputPanel, type Inputs } from "./components/InputPanel";
 import { HowItWorks } from "./components/HowItWorks";
@@ -53,8 +54,7 @@ export default function App() {
     setSnap(null);
     fetch(`/demo/${demoId}.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((s: Snapshot) => {
       if (cancelled) return;
-      s.analysis.usage.price ??= { calls: 0, credits: 0 };
-      s.analysis.usage.verify ??= { calls: 0, credits: 0 };
+      s.analysis.usage = { ...emptyUsage(), ...s.analysis.usage };
       live.current = s.analysis;
       ran.current = s.inputs;
       setSnap(s);
@@ -110,6 +110,8 @@ export default function App() {
   const include = (idx: number) => direct((a, i) => includeMessage(a, idx, i, client, render));
   const withhold = (idx: number) => { if (live.current) withholdAgain(live.current, idx, render); };
   const retryGuard = () => direct(async (a, i) => { await runGuard(a, i, client, render); applyWithheld(a); });
+  const retryPromise = () => direct((a, i) => runPromiseCheck(a, i, client, render));
+  const makePack = (id: string) => direct(async (a, i) => { const it = a.items.find((x) => x.id === id); if (it) await runProtect(a, id, buildPackText(a, it, i), client, render); });
   const retrySupport = (id: string) => direct((a, i) => runSupport(a, byId(id)!, i, client, render));
 
   const modeCard = (m: Mode, title: string, line: string, meta: string) => (
@@ -207,7 +209,7 @@ export default function App() {
 
         {analysis && (
           <Results key={mode === "demo" ? `demo-${demoId}` : "live"} analysis={analysis} running={running} onRetryItem={retryItem} onRetryMessage={retryMessage}
-            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify} onInclude={include} onWithhold={withhold} onRetryGuard={retryGuard}
+            onDecide={decide} onPrepare={(id) => fill(id)} onPrepareAll={prepareAll} onRegenerate={(id) => fill(id, true)} onRetrySupport={retrySupport} onAck={ack} onRetryVerify={retryVerify} onInclude={include} onWithhold={withhold} onRetryGuard={retryGuard} onRetryPromise={retryPromise} onMakePack={makePack}
             recorded={mode === "demo"} onSwitchDemo={() => switchMode("demo")} openAll={hashParams.get("open") === "1"}
             askHint={mode === "demo" && demoId !== "brand-studio" && !analysis.items.some((i) => i.route?.queue === "ask_me") ? { onOpen: () => setDemoId("brand-studio") } : undefined} />
         )}

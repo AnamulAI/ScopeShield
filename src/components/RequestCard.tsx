@@ -3,7 +3,7 @@ import { forwardRef } from "react";
 import type { RequestItem } from "../lib/pipeline";
 import { effortLabel } from "../lib/health";
 import { askQuestion, effectiveQueue, showWithdrawalNote, THRESHOLDS, type Decision } from "../lib/routing";
-import { QueueIcon, UndoIcon } from "./icons";
+import { ClauseIcon, QueueIcon, UndoIcon } from "./icons";
 import type { Queue } from "../lib/routing";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { ProbBar } from "./ProbBar";
@@ -63,6 +63,19 @@ export const RequestCard = forwardRef<HTMLElement, Props>(function RequestCard({
       {v && modelQ && item.route && (
         <>
           <p className="mt-3 text-sm text-ink/80">{item.route.reason}</p>
+          {item.governing && !withdrawn && (
+            <p data-governing className="mt-2 flex gap-2 text-sm">
+              <ClauseIcon width={18} height={18} className="mt-0.5 shrink-0 text-navy" />
+              <span>
+                <b>Governing clause</b> <span className="text-muted">(model estimate)</span>:{" "}
+                {item.governing.status === "running" && <span className="text-muted">looking…</span>}
+                {item.governing.status === "failed" && <span className="text-muted">could not be looked up.</span>}
+                {item.governing.status === "done" && (item.governing.text
+                  ? <>“{item.governing.text}” <span className="text-xs text-muted tnum">{item.governing.clauseId} · {Math.round((item.governing.relevance ?? 0) * 100)}%</span></>
+                  : <em>No clause covers this request</em>)}
+              </span>
+            </p>
+          )}
           {showWithdrawalNote(eq, v.withdrawn) && <p className="mt-1 text-sm text-muted">Withdrawal is below {Math.round(THRESHOLDS.withdrawn * 100)}%, so this request stays active.</p>}
           <div className="mt-4 space-y-2.5">
             <ProbBar label="Outside contract" value={v.outside} ticks={[THRESHOLDS.inScopeBelow, THRESHOLDS.outsideAtLeast]} tone="bg-navy" hint="Notches at 30% and 70%: below 30% is in scope, from 70% is outside." />

@@ -52,7 +52,7 @@ export const ChevronIcon = (p: P) => (<svg {...base} {...p}><path d="m7 10 5 5 5
 /** Shield with an exclamation mark: Guard flagged something. */
 export const ShieldAlertIcon = (p: P) => (<svg {...base} {...p}><path d="M12 3 4.5 5.8v5.6c0 4.5 3.1 7.7 7.5 9.6 4.4-1.9 7.5-5.1 7.5-9.6V5.8L12 3Z" /><path d="M12 8.5v4.2" /><path d="M12 15.8h.01" /></svg>);
 /** Two crossing strokes: a possible conflict between two texts. */
-export const ConflictIcon = (p: P) => (<svg {...base} {...p}><path d="M5 6h6a3 3 0 0 1 3 3v9" /><path d="M19 6h-6a3 3 0 0 0-3 3v9" /><path d="m11.5 15.5-1.5 2.5-1.5-2.5M15.5 15.5 14 18l-1.500-2.500" /></svg>);
+export const ConflictIcon = (p: P) => (<svg {...base} {...p}><path d="M5 8h13" /><path d="m14 4 4 4-4 4" /><path d="M19 16H6" /><path d="m10 12-4 4 4 4" /></svg>);
 /** Page with a lock-less fold: the masked evidence pack. */
 export const PackIcon = (p: P) => (<svg {...base} {...p}><path d="M7 3.5h7l4 4V20.5H7V3.5Z" /><path d="M14 3.5v4h4" /><path d="M9.500 12h6M9.500 15.500h4" /></svg>);
 /** Ruler-like mark for the governing clause: a section sign. */

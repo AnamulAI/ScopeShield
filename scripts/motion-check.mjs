@@ -276,6 +276,32 @@ for (const width of [1280, 375]) {
   ok((await ev("document.querySelectorAll('[data-guard-chip]').length")) === 0, "benign sample: no Guard chip");
   ok((await ev("document.querySelector('section[aria-label=\"Safety and evidence\"]').innerText.includes('No instruction to the analysis tool found')")) === true, "benign sample: Guard says nothing was found (estimate)");
 
+  // ===== M10 governing clause, M12 promise check, M11 privacy-safe evidence pack (Demo: recorded, no API calls) =====
+  await load(width, "#sample=bakery");
+  const govTexts = "[...document.querySelectorAll('article')].filter((a) => a.querySelector('p.font-display').textContent.includes('online ordering')).map((a) => a.querySelector('[data-governing]')?.textContent ?? '')";
+  const gov = await ev(govTexts);
+  ok(gov.length === 1 && gov[0].includes("Governing clause") && gov[0].includes("model estimate") && gov[0].includes("Excluded: online ordering"), `governing clause shown as an estimate on the card ${JSON.stringify(gov)}`);
+  ok((await ev("[...document.querySelectorAll('#list-withdrawn article')].every((a) => !a.querySelector('[data-governing]'))")) === true, "withdrawn requests get no governing clause");
+  ok((await ev("[...document.querySelectorAll('[data-governing]')].some((g) => g.textContent.includes('No clause covers this request'))")) === true, "a request without a covering clause says so explicitly");
+  ok((await ev("document.querySelector('#promise').innerText.includes('No conflicts found in your messages')")) === true, "bakery: promise check reports no conflicts (estimate)");
+  await load(width, "#sample=pushy-client");
+  const pc = await ev("document.querySelector('#promise').innerText");
+  ok(pc.toLowerCase().includes("possible conflict, please review") && pc.includes("Includes one round of revisions") && pc.includes("one more round of changes on the house"), "pushy: promise check lists the conflict with both quotes");
+  ok(!/verdict:|is a conflict\b/i.test(pc.replace("not a verdict", "")), "promise check never calls it a verdict");
+  await clickText("Show in thread", "document.querySelector('#promise')"); await sleep(700);
+  ok((await ev("document.querySelectorAll('mark.sweep').length")) >= 1, "Show in thread highlights the freelancer's message in the chat");
+  ok((await ev("document.querySelectorAll('#chat-window mark[title*=\"Possible conflict\"]').length")) >= 1, "conflicting messages are marked in the chat");
+  await ev("document.getElementById('evidence-pack').open = true"); await sleep(200);
+  const pack = await ev("document.getElementById('evidence-pack').innerText");
+  ok(pack.includes("Found and masked:") && /person \d/.test(pack), `pack shows what was found and masked by kind ${JSON.stringify(pack.match(/Found and masked:[^\n]*/)?.[0])}`);
+  ok(pack.includes("Detection can miss sensitive data. Review before sharing."), "pack carries the detection caveat");
+  const masked = await ev("document.querySelector('#evidence-pack pre[aria-label=\"Masked evidence pack\"]').textContent");
+  ok(masked.includes("<PERSON>") && !/Marcus|Zoe/.test(masked), "the masked text hides the names");
+  ok((await ev("document.querySelector('#evidence-pack details pre').textContent.includes('Marcus')")) === true, "the original text is kept unchanged for comparison (collapsed)");
+  ok((await ev("[...document.querySelectorAll('#evidence-pack button')].map((b) => b.textContent.trim()).filter((t) => t === 'Copy masked text' || t === 'Download .txt').length")) === 2, "Copy and Download are offered");
+  ok((await ev(apiCalls)) === 0, "Safety and evidence features made no API calls in Demo mode");
+  ok((await ev("document.documentElement.scrollWidth")) <= width, `${width}: no horizontal scroll with the Safety and evidence area open`);
+
   // header and footer
   ok((await ev("getComputedStyle(document.querySelector('header')).position")) === "sticky", "header is sticky");
   const links = await ev("[...document.querySelectorAll('header a, footer a')].map((a) => a.getAttribute('href'))");

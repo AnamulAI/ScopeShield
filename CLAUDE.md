@@ -75,6 +75,14 @@ Clocked is strong at: "an approval request is not an approval", "later messages 
 5c. **Verify (M7).** After Fill, `POST /clocked/grounding` checks the generated message against two named documents, `contract` and `thread` (the next step is not sent). Contradicted claim: Copy blocked, claim + evidence shown. Not-stated claim: amber note, Copy gated behind one "I've read this" click. Supported claims: counted, evidence highlighted in the thread while the change order is open. Verify failure: "Not verified" + retry, not blocking. The invented-amount guard stays. Recorded for demos with `npm run snapshot -- --only verify`. The proxy allowlist is `decide|extract|fill|grounding`; daily caps always apply unless the dev-only env flag `ALLOW_UNLIMITED_LOCAL=1` is set in `.dev.vars` (never derived from hostname, headers or query string).
 6. Scope Health meter: counts per queue + estimated unpaid effort. Map expected effort score → rough hour bands (clearly labelled "rough estimate"); optional user-entered hourly rate. Never present estimates as facts.
 
+## M9-M12 additions (implemented)
+- Endpoints allowlisted in the proxy: `decide|extract|fill|grounding|injection|rerank|pii|compare` (daily caps count all of them).
+- **Guard** (`/injection`): one call per analysis over the client's messages only (`source: "content"`); flagged messages are replaced by "[message withheld: possible instruction to the analysis tool]" in the state sent to Decide/Fill/Verify and the lookups (offsets mapped back via `withholdMessages`); "Include anyway" is a recorded user decision (Demo uses a result recorded in advance).
+- **Rerank** (`/rerank`): contract split into clauses c1..cn (`splitClauses`); one call per active request, query phrased as a question about the contract; the governing clause is shown on the card and injected into Fill's instructions; never changes routing.
+- **Protect** (`/pii`): on-demand "privacy-safe evidence pack" per request; only counts and the masked text are kept (the API echoes the original values; they are dropped); the original text is never altered.
+- **Compare** (`/compare`): "Promise check", contract vs the freelancer's own messages; findings are labelled "Possible conflict, please review", never a verdict.
+- All four are estimates and are labelled as such. `scripts/smoke-extra.ts` prints their raw responses.
+
 ## M4 additions (implemented)
 - Demo mode is the default: recorded runs of the three synthetic samples (`samples/*.json`, recorded by `npm run snapshot` into `public/demo/*.json` with date and credits), served as static files; the demo client makes NO API calls. "Run live" uses the proxy with input caps.
 - Scope Health: counts per queue and a rough unpaid-effort range (bands: <0.5 under 1 h, 0.5-1.5 about 2-6 h, 1.5-2.5 about 16-24 h, >2.5 40 h or more). WITHDRAWN and IN SCOPE never count. Money appears only if the user types an hourly rate.
