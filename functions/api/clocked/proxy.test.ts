@@ -190,6 +190,29 @@ describe("onRequestPost", () => {
       expect(r.status, url).toBe(429);
     }
   });
+  it("forwards the eight allowed endpoints (incl. injection, rerank, pii, compare), refuses others, and applies the same caps and Origin check to the new ones", async () => {
+    const up = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    for (const ep of ["decide", "extract", "fill", "grounding", "injection", "rerank", "pii", "compare"]) {
+      const c = ctx(`http://localhost:8788/api/clocked/${ep}`, { CLOCKED_API_KEY: "x", ALLOW_UNLIMITED_LOCAL: "1" });
+      (c.params as Record<string, string>).endpoint = ep;
+      expect((await onRequestPost(c)).status, ep).toBe(200);
+      expect(String(up.mock.calls.at(-1)![0])).toBe(`https://clocked.rezolve.ai/clocked/${ep}`);
+    }
+    const bad = ctx("https://scopeshield.pages.dev/api/clocked/inspect", { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() });
+    (bad.params as Record<string, string>).endpoint = "inspect";
+    expect((await onRequestPost(bad)).status).toBe(404);
+    for (const ep of ["injection", "rerank", "pii", "compare"]) {
+      const k = kv();
+      const today = new Date().toISOString().slice(0, 10);
+      k.store.set(`rl:ip:${today}:unknown`, String(IP_DAILY_CAP * 2));
+      const capped = ctx(`https://scopeshield.pages.dev/api/clocked/${ep}`, { CLOCKED_API_KEY: "x", RATE_LIMIT: k });
+      (capped.params as Record<string, string>).endpoint = ep;
+      expect((await onRequestPost(capped)).status, `${ep} cap`).toBe(429);
+      const cross = ctx(`https://scopeshield.pages.dev/api/clocked/${ep}`, { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() }, { headers: { Origin: "https://evil.example" } });
+      (cross.params as Record<string, string>).endpoint = ep;
+      expect((await onRequestPost(cross)).status, `${ep} origin`).toBe(403);
+    }
+  });
   it("rejects oversized bodies", async () => {
     const big = new Request("https://scopeshield.pages.dev/api/clocked/decide", { method: "POST", headers: { "idempotency-key": "k" }, body: "x".repeat(200 * 1024 + 1) });
     const r = await onRequestPost({ request: big, env: { CLOCKED_API_KEY: "x", RATE_LIMIT: kv() }, params: { endpoint: "decide" } } as unknown as Parameters<typeof onRequestPost>[0]);
