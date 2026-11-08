@@ -116,7 +116,12 @@ export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRe
       <div className={row} id="scripts">
         <h3 className="flex items-center gap-2 text-sm font-semibold"><CodeIcon width={18} height={18} className="text-navy" />Client-supplied scripts</h3>
         {!analysis.scripts && <p className="mt-1 text-sm text-muted">Not run{recorded ? " in this recording" : ""}.</p>}
-        {analysis.scripts && analysis.scripts.length === 0 && <p className="mt-1 text-sm text-ink/85">No code snippet found in the client’s messages, so no call was made.</p>}
+        {analysis.scripts && analysis.scripts.length === 0 && (
+          <>
+            <p className="mt-1 text-sm text-ink/85">No code snippet found in the client’s messages, so no call was made.</p>
+            <p className="mt-1 text-xs text-muted">Looked for: fenced code, {"<script>"} blocks, curl or wget piped to a shell, PowerShell commands, function blocks, and runs of code-like statements (two or more markers such as document.cookie, new Image( or fetch( close together). This is a rule-based check and can miss code, so read anything a client sends you.</p>
+          </>
+        )}
         {analysis.scripts && analysis.scripts.length > 0 && (
           <ul className="mt-2 space-y-2">
             {analysis.scripts.map((c, i) => (

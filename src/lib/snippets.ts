@@ -14,6 +14,14 @@ const FENCE = /```[A-Za-z0-9_+-]*[ \t]*\n([\s\S]*?)```/g;
 const SCRIPT_TAG = /<script\b[\s\S]*?<\/script\s*>/gi;
 const JS_BLOCK = /(?:\bfunction\b[^{}\n]*\([^)]*\)\s*\{|=>\s*\{)/g;
 
+/** Code-like markers. A message needs at least two DISTINCT ones close together to count as a pasted snippet. */
+const CODE_HITS: RegExp[] = [
+  /document\.cookie/g, /new\s+Image\s*\(/g, /\.src\s*=/g, /\bfetch\(/g, /XMLHttpRequest/g,
+  /\beval\(/g, /\batob\(/g, /\blocalStorage\b/g, /window\.location/g, /<iframe\b/gi,
+];
+/** Hits further apart than this many characters are not the same snippet. */
+const HIT_GAP = 300;
+
 interface Span { s: number; e: number } // UTF-16 offsets inside one message
 
 function lineStart(t: string, i: number) { return t.lastIndexOf("\n", i - 1) + 1; }
@@ -30,7 +38,34 @@ function braceEnd(t: string, from: number): number {
   return t.length;
 }
 
-/** Candidate code spans in one message text. Order of preference: fences, <script> tags, curl|sh lines, PowerShell lines, JS blocks. */
+/** Runs of code-like statements (plain lines or inline in a sentence): two or more distinct markers within HIT_GAP characters.
+ *  The span is trimmed to the code-like portion: from the start of the first marker's statement to the end of the last one's. */
+export function statementRuns(text: string): Span[] {
+  const hits: { i: number; e: number; k: number }[] = [];
+  CODE_HITS.forEach((re, k) => { for (const m of text.matchAll(re)) hits.push({ i: m.index!, e: m.index! + m[0].length, k }); });
+  hits.sort((a, b) => a.i - b.i);
+  const runs: { first: number; last: number; kinds: Set<number> }[] = [];
+  for (const h of hits) {
+    const r = runs[runs.length - 1];
+    if (r && h.i - r.last <= HIT_GAP) { r.last = Math.max(r.last, h.e); r.kinds.add(h.k); }
+    else runs.push({ first: h.i, last: h.e, kinds: new Set([h.k]) });
+  }
+  const spans: Span[] = [];
+  for (const r of runs) {
+    if (r.kinds.size < 2) continue;
+    // start: back up to the previous ";", line break or ": " (the end of the sentence that introduces the code)
+    let s = r.first;
+    while (s > 0 && text[s - 1] !== ";" && text[s - 1] !== "\n" && !(text[s - 1] === " " && text[s - 2] === ":")) s--;
+    // end: forward to the next ";" (kept) or the end of the line
+    let e = r.last;
+    while (e < text.length && text[e] !== ";" && text[e] !== "\n") e++;
+    if (text[e] === ";") e++;
+    spans.push({ s, e });
+  }
+  return spans;
+}
+
+/** Candidate code spans in one message text. Order of preference: fences, <script> tags, curl|sh lines, PowerShell lines, JS blocks, runs of code-like statements. */
 export function codeSpans(text: string): Span[] {
   const spans: Span[] = [];
   for (const m of text.matchAll(FENCE)) spans.push({ s: m.index! + m[0].indexOf(m[1]), e: m.index! + m[0].indexOf(m[1]) + m[1].length });
@@ -50,6 +85,7 @@ export function codeSpans(text: string): Span[] {
     const s = lineStart(text, m.index!);
     spans.push({ s, e: braceEnd(text, m.index!) });
   }
+  spans.push(...statementRuns(text));
   // merge overlapping or touching spans
   spans.sort((a, b) => a.s - b.s);
   const merged: Span[] = [];
