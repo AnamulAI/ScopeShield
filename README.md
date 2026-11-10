@@ -4,6 +4,10 @@ ScopeShield reads a freelancer's contract and a client chat thread, finds the re
 
 **Live demo:** https://scopeshield.anamulhoque.com (fallback: https://scopeshield-1la.pages.dev). Demo mode needs no key and makes no API calls.
 
+**Demo video (60 s, with voice-over):** https://www.youtube.com/watch?v=yEYZu5MoBX8
+
+**For judges:** a two-minute walkthrough and a map from each judging criterion to the evidence is in [JUDGES.md](JUDGES.md).
+
 <p align="center">
   <img src="docs/screenshots/desktop-top.png" alt="ScopeShield home screen: hero, the Demo and Run live choice, and the results summary with Scope Health" width="860">
 </p>
