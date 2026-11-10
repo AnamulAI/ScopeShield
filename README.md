@@ -137,7 +137,7 @@ npx wrangler pages deploy dist --project-name scopeshield --branch main
 | Compare | 2 | 2 | offering excluded work at no cost is flagged; consistent freelancer messages are not |
 | Inspect | 2 | 2 | a routine analytics tag is not flagged harmful; a snippet that sends cookies to an outside address is |
 
-The one failure is real and left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids. One positive and one benign case per endpoint is a thin test: it shows each feature can fire and can stay quiet, not how often it is right (see Limitations). There are also **161 unit tests** in 15 files (routing, thread parsing and Unicode offsets, retry and backoff, the pipeline with mocked calls, the invented-amount check, Verify policy, Guard withholding and offset mapping, snippet detection and Inspect mapping, clause splitting, promise-check mapping, evidence packs, the proxy and its rate limits, replay and chat helpers).
+The one failure is real and left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids. One positive and one benign case per endpoint is a thin test: it shows each feature can fire and can stay quiet, not how often it is right (see Limitations). There are also **170 unit tests** in 15 files (routing, thread parsing and Unicode offsets, retry and backoff, the pipeline with mocked calls, the invented-amount check, Verify policy, Guard withholding and offset mapping, snippet detection and Inspect mapping, clause splitting, promise-check mapping, evidence packs, the proxy and its rate limits, replay and chat helpers).
 
 ## Credit cost per analysis
 
