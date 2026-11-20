@@ -9,7 +9,9 @@ const CHROME = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Conte
 const BASE = process.env.SHOT_BASE_URL ?? "http://localhost:8788";
 const PORT = 9333;
 // Clip of one element (page coordinates) after optional setup.
+const only = (name) => !process.env.SHOTS_ONLY || name.includes(process.env.SHOTS_ONLY); // e.g. SHOTS_ONLY=bengali regenerates just those
 const elementShot = async (name, width, hash, opts = {}) => {
+  if (!only(name)) return;
   await send("Emulation.setDeviceMetricsOverride", { width, height: width < 500 ? 812 : 900, deviceScaleFactor: 1, mobile: width < 500 });
   await send("Emulation.setEmulatedMedia", { features: opts.reduced === false ? [] : [{ name: "prefers-reduced-motion", value: "reduce" }] });
   await send("Page.navigate", { url: "about:blank" }); await sleep(300);
@@ -32,6 +34,8 @@ const SHOTS = [
   ["desktop-brand-open", 1280, "/#sample=brand-studio&open=1"],
   ["desktop-fitness", 1280, "/#sample=fitness-app"],
   ["desktop-pushy", 1280, "/#sample=pushy-client"],
+  ["desktop-bengali", 1280, "/#lang=bn&sample=pushy-client", { tall: 1750 }],
+  ["mobile-bengali", 375, "/#lang=bn&sample=pushy-client", { tall: 2200 }],
   ["tablet-bakery", 768, "/#sample=bakery"],
   ["mobile-brand-open", 375, "/#sample=brand-studio&open=1"],
   ["mobile-hero", 375, "/#sample=bakery", { hero: true }],
@@ -49,6 +53,7 @@ ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && waiters.has(d.
 const send = (method, params = {}) => new Promise((res) => { const i = ++id; waiters.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
 
 const heroClip = async (name, width, setup) => {
+  if (!only(name)) return;
   await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: "about:blank" });
   await sleep(300);
@@ -66,6 +71,7 @@ const heroClip = async (name, width, setup) => {
 };
 
 for (const [name, width, path, opts] of SHOTS) {
+  if (!only(name)) continue;
   await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: width < 500 });
   await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] }); // finished thread, final values
   await send("Page.navigate", { url: "about:blank" }); // hash-only changes do not reload, so leave the page first
@@ -85,6 +91,7 @@ await elementShot("desktop-thread-chat-guard", 1280, "#sample=pushy-client", { p
 await elementShot("safety-evidence", 1280, "#sample=pushy-client", { selector: 'section[aria-label="Safety and evidence"]', pre: "(() => { document.getElementById('evidence-pack').open = true; window.scrollBy(0, -70); })()", maxHeight: 1500 });
 await elementShot("governing-clause", 1280, "#sample=pushy-client", { selector: "#card-12-0", pre: "window.scrollBy(0, -90)", maxHeight: 1400 });
 await elementShot("evidence-pack-open", 1280, "#sample=pushy-client", { selector: "#evidence-pack", pre: "(() => { const d = document.getElementById('evidence-pack'); d.open = true; const sel = d.querySelector('select'); if (sel) { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, '12-0'); sel.dispatchEvent(new Event('change', { bubbles: true })); } window.scrollBy(0, -90); })()", wait: 900, maxHeight: 1400 });
+await elementShot("bengali-request-card", 1280, "#lang=bn&sample=pushy-client", { selector: "#card-12-0", pre: "window.scrollBy(0, -90)", maxHeight: 1400 });
 await elementShot("client-supplied-script", 1280, "#sample=pushy-client", { selector: "[data-script-row]", pre: "window.scrollBy(0, -90)", maxHeight: 700 });
 await send("Emulation.setEmulatedMedia", { features: [] });
 await heroClip("hero-mid-animation", 1280, { freezeAt: 1500 });

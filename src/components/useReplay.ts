@@ -8,7 +8,7 @@ import { onFirstVisible, prefersReducedMotion } from "./motion";
  * The default state is the finished thread (revealed === total). Autoplay starts once, the first time the panel is visible,
  * and never with reduced motion. A watchdog finishes the replay if timers stall, so nothing can stay hidden.
  */
-export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (index: number) => string[]) {
+export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (index: number) => string[], announce: (m: ReplayMsg, verdicts: string[]) => string = announcement) {
   const total = msgs.length;
   const [revealed, setRevealed] = useState(total);
   const [playing, setPlaying] = useState(false);
@@ -31,14 +31,14 @@ export function useReplay(msgs: ReplayMsg[], enabled: boolean, verdictsFor: (ind
     const reveal = () => {
       setTyping(null);
       set(next + 1);
-      setLive(announcement(msgs[next], verdictsFor(next)));
+      setLive(announce(msgs[next], verdictsFor(next)));
       if (next + 1 >= total) { clear(); setPlaying(false); return; }
       timer.current = window.setTimeout(() => tick(next + 1), replayDelay(msgs[next]));
     };
     if (prefersReducedMotion()) { reveal(); return; }
     setTyping(next);
     timer.current = window.setTimeout(reveal, TYPING_MS);
-  }, [msgs, total, finish, verdictsFor]);
+  }, [msgs, total, finish, verdictsFor, announce]);
 
   const run = useCallback((from: number) => {
     clear();

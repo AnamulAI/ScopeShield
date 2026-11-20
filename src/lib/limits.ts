@@ -1,24 +1,27 @@
 // Input caps for live runs (protect credits and request size).
 export const LIMITS = { contract: 6000, thread: 12000, clientMessages: 30 } as const;
 
+import { tEn, type Key, type Vars } from "../i18n/core";
 import { cpLength, parseThread } from "./thread";
 
-export interface InputCheck { ok: boolean; problems: string[]; speakers: string[]; clientMessages: number }
+/** A problem with the input as a translation key plus values; `problems` is the same list in English. */
+export interface InputIssue { key: Key; vars?: Vars }
+export interface InputCheck { ok: boolean; problems: string[]; issues: InputIssue[]; speakers: string[]; clientMessages: number }
 
 export function checkInputs(contract: string, thread: string, clientName: string): InputCheck {
-  const problems: string[] = [];
+  const issues: InputIssue[] = [];
   const messages = parseThread(thread, clientName);
   const speakers = [...new Set(messages.map((m) => m.speaker))];
   const clientMessages = messages.filter((m) => m.isClient).length;
-  if (!contract.trim()) problems.push("Paste the agreed contract or scope.");
-  else if (cpLength(contract) > LIMITS.contract) problems.push(`Contract is over ${LIMITS.contract.toLocaleString()} characters.`);
-  if (!thread.trim()) problems.push("Paste the client thread, one message per line as “Name: text”.");
-  else if (cpLength(thread) > LIMITS.thread) problems.push(`Thread is over ${LIMITS.thread.toLocaleString()} characters.`);
-  else if (messages.length === 0) problems.push("No messages found. Each message must start with “Name:”.");
+  if (!contract.trim()) issues.push({ key: "limits.noContract" });
+  else if (cpLength(contract) > LIMITS.contract) issues.push({ key: "limits.contractTooLong", vars: { n: LIMITS.contract.toLocaleString() } });
+  if (!thread.trim()) issues.push({ key: "limits.noThread" });
+  else if (cpLength(thread) > LIMITS.thread) issues.push({ key: "limits.threadTooLong", vars: { n: LIMITS.thread.toLocaleString() } });
+  else if (messages.length === 0) issues.push({ key: "limits.noMessages" });
   if (thread.trim() && messages.length > 0) {
-    if (!clientName.trim()) problems.push("Enter the client’s name exactly as it appears in the thread.");
-    else if (clientMessages === 0) problems.push(`No messages from “${clientName.trim()}”. Speakers in this thread: ${speakers.join(", ")}.`);
-    else if (clientMessages > LIMITS.clientMessages) problems.push(`${clientMessages} client messages found; the live limit is ${LIMITS.clientMessages}.`);
+    if (!clientName.trim()) issues.push({ key: "limits.noClientName" });
+    else if (clientMessages === 0) issues.push({ key: "limits.noClientMessages", vars: { name: clientName.trim(), speakers: speakers.join(", ") } });
+    else if (clientMessages > LIMITS.clientMessages) issues.push({ key: "limits.tooManyClient", vars: { n: clientMessages, max: LIMITS.clientMessages } });
   }
-  return { ok: problems.length === 0, problems, speakers, clientMessages };
+  return { ok: issues.length === 0, problems: issues.map((i) => tEn(i.key, i.vars)), issues, speakers, clientMessages };
 }
