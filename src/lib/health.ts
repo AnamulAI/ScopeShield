@@ -1,4 +1,5 @@
 // Scope Health: counts per queue + a ROUGH estimate of unpaid effort. Never presented as fact.
+import { tEn, type TFn } from "../i18n/core";
 import type { RequestItem } from "./pipeline";
 import { effectiveQueue, type Queue } from "./routing";
 
@@ -15,6 +16,10 @@ export function effortBand(score: number): Band {
 const EFFORT_LABELS = ["Trivial (minutes)", "Small (under a day)", "Medium (a few days)", "Large (a week or more)"];
 /** Name of Decide's effort level nearest to the expected score (0-3). */
 export const effortLabel = (score: number): string => EFFORT_LABELS[Math.min(3, Math.max(0, Math.round(score)))];
+/** Index (0-3) of that level, for translated labels. */
+export const effortIndex = (score: number): number => Math.min(3, Math.max(0, Math.round(score)));
+/** Same level, in the language of `t` (keys effort.0 to effort.3). */
+export const effortLabelText = (t: (key: `effort.${0 | 1 | 2 | 3}`) => string, score: number): string => t(`effort.${effortIndex(score) as 0 | 1 | 2 | 3}`);
 
 export interface Hours { min: number; max: number | null; items: number }
 const addHours = (acc: Hours, b: Band): Hours => ({ min: acc.min + b.min, max: acc.max === null || b.max === null ? null : acc.max + b.max, items: acc.items + 1 });
@@ -43,16 +48,16 @@ export function scopeHealth(items: RequestItem[]): Health {
   return { counts, confirmedUnpaid: confirmed, possibleUnpaid: possible, uncounted };
 }
 
-export function formatHours(h: Hours): string {
-  if (h.items === 0) return "none";
-  if (h.max === null) return `at least ${h.min} h`;
-  return h.min === h.max ? `${h.min} h` : `${h.min}–${h.max} h`;
+export function formatHours(h: Hours, t: TFn = tEn): string {
+  if (h.items === 0) return t("hours.none");
+  if (h.max === null) return t("hours.atLeast", { n: h.min });
+  return h.min === h.max ? t("hours.single", { n: h.min }) : t("hours.range", { a: h.min, b: h.max });
 }
 
 /** Money only when the user typed a rate. Returns null otherwise. Open-ended ranges give a minimum only. */
-export function formatMoney(h: Hours, rate: number | null): string | null {
+export function formatMoney(h: Hours, rate: number | null, t: TFn = tEn): string | null {
   if (rate === null || !(rate > 0) || h.items === 0) return null;
   const f = (n: number) => Math.round(n * rate).toLocaleString("en-US");
-  if (h.max === null) return `at least ${f(h.min)}`;
+  if (h.max === null) return t("money.atLeast", { x: f(h.min) });
   return h.min === h.max ? f(h.min) : `${f(h.min)}–${f(h.max)}`;
 }

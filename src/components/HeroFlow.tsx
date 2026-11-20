@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { QUEUE_ORDER } from "./queues";
 import { QueueIcon, ShieldCheckIcon } from "./icons";
 import type { Queue } from "../lib/routing";
+import { useI18n } from "../i18n";
 
 // Decorative hero animation: five client message lines pass through the shield and sort into the five queues.
 // ~3.4 s, plays once on load. The base style of every line is its final sorted position (see index.css), so with
@@ -20,9 +21,10 @@ const COLORS: Record<Queue, { fg: string; bg: string }> = {
 const LANE_X = 372, LANE_W = 180, LINE_END_X = 418, START_X = 8, SHIELD_X = 250;
 
 export function HeroFlow() {
+  const { t } = useI18n();
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" width="100%" style={{ aspectRatio: `${W} / ${H}`, display: "block", maxWidth: 560 }}
-      aria-label="Client messages pass through a shield and are sorted into five queues: needs change order, ask me, agreed extra, in scope and withdrawn.">
+      aria-label={t("hero.flowAria")}>
       {/* lanes: one per queue */}
       {QUEUE_ORDER.map((q, i) => (
         <g key={q} className="flow-lane" style={{ animationDelay: `${i * 80}ms` }}>

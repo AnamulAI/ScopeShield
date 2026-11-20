@@ -1,4 +1,5 @@
 // Pure helpers for the thread replay (recorded data only) and the results view (filters, collapsed groups).
+import { tEn, type TFn } from "../i18n/core";
 import type { Queue } from "./routing";
 
 export interface ReplayMsg { isClient: boolean; text: string; speaker: string }
@@ -13,9 +14,9 @@ export const replayDelay = (m: ReplayMsg): number => (m.isClient ? Math.min(800,
 export const replayBudget = (msgs: ReplayMsg[]): number => msgs.reduce((t, m) => t + replayDelay(m) + TYPING_MS, 0) + 3000;
 
 /** Text for the polite live region: only client messages are announced, with their verdicts, to keep it quiet. */
-export function announcement(m: ReplayMsg, verdicts: string[]): string {
+export function announcement(m: ReplayMsg, verdicts: string[], t: TFn = tEn): string {
   if (!m.isClient) return "";
-  return `${m.speaker}, client: ${m.text.replace(/\s+/g, " ").trim()}.${verdicts.length ? ` ${verdicts.join(". ")}.` : ""}`;
+  return `${t("replay.announce", { speaker: m.speaker, text: m.text.replace(/\s+/g, " ").trim() })}${verdicts.length ? ` ${verdicts.join(". ")}.` : ""}`;
 }
 
 export type Filter = Queue | "all";

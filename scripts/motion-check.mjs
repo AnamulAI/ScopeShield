@@ -346,6 +346,28 @@ for (const width of [1280, 375]) {
   const chips = await top('[aria-label="Sample threads"]');
   ok(chips && chips.top >= 0 && chips.top < chips.h, `${width}px: clicking Demo shows the sample chips in the viewport (top ${chips && Math.round(chips.top)} of ${chips && chips.h})`);
   await shot("demo");
+
+  // 7) Bengali interface: switch, saved choice, no horizontal overflow, Bengali font, no API calls
+  for (const sample of ["bakery", "fitness-app", "brand-studio", "pushy-client"]) {
+    await load(width, `#lang=bn&sample=${sample}`);
+    ok((await ev("document.documentElement.lang")) === "bn", `${width}px bn/${sample}: html lang is bn`);
+    ok((await ev("document.documentElement.scrollWidth <= innerWidth")) === true, `${width}px bn/${sample}: no horizontal overflow (${await ev("document.documentElement.scrollWidth")} vs ${width})`);
+    ok((await ev("document.querySelector('h1').innerText.includes('Scope creep ধরুন')")) === true, `${width}px bn/${sample}: Bengali headline`);
+    ok((await ev("[...document.querySelectorAll('[aria-label=\"Main\"], nav')].length > 0 && document.querySelector('header [lang=bn][aria-pressed=true]') !== null")) === true, `${width}px bn/${sample}: the switch shows বাংলা selected`);
+    ok((await ev("document.getElementById('how-it-works').querySelector('.t-h3').innerText === 'কীভাবে কাজ করে'")) === true, `${width}px bn/${sample}: How it works title is Bengali`);
+    ok((await ev("document.getElementById('how-it-works').open = true, document.documentElement.scrollWidth <= innerWidth")) === true, `${width}px bn/${sample}: How it works table does not widen the page`);
+  }
+  await load(width, "#lang=bn&sample=bakery&open=1");
+  await sleep(500);
+  ok((await ev("document.querySelector('#queue-needs_change_order h3').innerText.includes('Change order দরকার')")) === true, `${width}px bn: queue heading follows the glossary`);
+  ok((await ev("document.body.innerText.includes('এই অনুরোধটি contract-এর বাইরে, এবং কেউ টাকা দিতে রাজি হননি।')")) === true, `${width}px bn: static Bengali reason under a needs-change-order verdict`);
+  ok((await ev("document.fonts.check('16px \"Noto Sans Bengali Variable\"', 'অ')")) === true, `${width}px bn: Noto Sans Bengali is loaded`);
+  ok((await ev("document.querySelector('#chat-window [role=log]').innerText.includes('Hi Nila')")) === true, `${width}px bn: the client's own sentences stay in their original language`);
+  ok((await ev(apiCalls)) === 0, `${width}px bn: Demo mode made no API calls`);
+  // the choice is saved, and EN switches back
+  await ev("document.querySelector('header [lang=en][aria-pressed]').click(); 1"); await sleep(300);
+  ok((await ev("document.documentElement.lang")) === "en" && (await ev("localStorage.getItem('scopeshield-lang')")) === "en" && (await ev("document.querySelector('h1').innerText.startsWith('Catch scope creep')")) === true, `${width}px: EN switches back and is saved`);
+  ok((await ev("document.documentElement.scrollWidth <= innerWidth")) === true, `${width}px en: no horizontal overflow with the language switch in the header`);
 }
 console.log(`\n${checks - failures}/${checks} checks passed`);
 ws.close(); chrome.kill();

@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
-import { describeCounts } from "../lib/protect";
-import { effectiveQueue, QUEUE_LABEL } from "../lib/routing";
+import { describeCountsText } from "../lib/protect";
+import { effectiveQueue, type Queue } from "../lib/routing";
+import { useI18n, type Key } from "../i18n";
+import { queueLabel } from "../i18n/labels";
 import type { Analysis } from "../lib/pipeline";
 import { describeError } from "../lib/errors";
 import { CodeIcon, ConflictIcon, PackIcon, ShieldAlertIcon, ShieldCheckIcon } from "./icons";
@@ -24,44 +26,45 @@ const row = "border-t border-line px-5 py-4 first:border-t-0 sm:px-6";
 
 /** One calm area for the safety and evidence features. Model judgments are labelled as estimates. */
 export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRetryGuard, onShowSpan, onRetryPromise, onMakePack, onRetryScript }: Props) {
+  const { t, tp } = useI18n();
   const g = analysis.guard;
   const flagged = g ? [...new Set([...g.withheld, ...g.included])].sort((a, b) => a - b) : [];
   const clientCount = analysis.messages.filter((m) => m.isClient).length;
   const speaker = (i: number) => analysis.messages[i]?.speaker ?? "";
 
   return (
-    <section aria-label="Safety and evidence" className="surface overflow-hidden">
+    <section aria-label={t("safety.aria")} className="surface overflow-hidden">
       <div className="px-5 pt-5 sm:px-6 sm:pt-6">
-        <p className="t-eyebrow text-muted">Safety and evidence</p>
-        <h2 className="t-h3 mt-1">Checks on the input and on what you send</h2>
+        <p className="t-eyebrow text-muted">{t("safety.eyebrow")}</p>
+        <h2 className="t-h3 mt-1">{t("safety.title")}</h2>
       </div>
 
       {/* M9 Guard */}
       <div className={`${row} mt-4`} id="guard">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
           {flagged.length > 0 ? <ShieldAlertIcon width={18} height={18} className="text-warn" /> : <ShieldCheckIcon width={18} height={18} className="text-scope" />}
-          Guard: messages that try to instruct the analysis
+          {t("safety.guardTitle")}
         </h3>
-        {!g && <p className="mt-1 text-sm text-muted">Not run{recorded ? " in this recording" : ""}.</p>}
-        {g?.status === "running" && <p role="status" className="mt-1 flex items-center gap-2 text-sm text-muted"><span className="spinner" /> Screening the client’s messages…</p>}
+        {!g && <p className="mt-1 text-sm text-muted">{t(recorded ? "safety.notRunRecorded" : "safety.notRun")}</p>}
+        {g?.status === "running" && <p role="status" className="mt-1 flex items-center gap-2 text-sm text-muted"><span className="spinner" /> {t("safety.guardRunning")}</p>}
         {g?.status === "failed" && (
           <p role="alert" className="mt-1 text-sm text-ink">
-            <b className="text-change">{describeError(g.errorKind, g.error).title}</b> Guard could not run, so the client’s messages were not screened.{" "}
-            <button onClick={onRetryGuard} className="font-semibold text-navy underline underline-offset-4">Retry Guard</button>
+            <b className="text-change">{describeError(g.errorKind, g.error, t).title}</b> {t("safety.guardFailed")}{" "}
+            <button onClick={onRetryGuard} className="font-semibold text-navy underline underline-offset-4">{t("safety.guardRetry")}</button>
           </p>
         )}
         {g?.status === "done" && flagged.length === 0 && (
           <p className="mt-1 text-sm text-ink/85">
             {g.result?.verdict === "injection" && g.unlocated > 0
-              ? "Guard estimates that something in the client’s messages may be an instruction to the analysis tool, but could not locate it, so nothing was withheld. Please read the thread."
-              : <>No instruction to the analysis tool found in the client’s {clientCount} message{clientCount === 1 ? "" : "s"} (estimate{g.result ? `, ${Math.round(g.result.injection * 100)}% chance of one` : ""}). Guard is a detector, not a guarantee.</>}
+              ? t("safety.guardUnlocated")
+              : tp("safety.guardClean", clientCount, { chance: g.result ? t("safety.guardChance", { pct: Math.round(g.result.injection * 100) }) : "" })}
           </p>
         )}
         {flagged.length > 0 && (
           <div role="status" className="mt-2 space-y-2">
             <p className="rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-ink">
-              <b className="text-warn">Guard flagged {flagged.length} client message{flagged.length === 1 ? "" : "s"} as a possible instruction to the analysis tool.</b>{" "}
-              This is an estimate, not a verdict. Flagged text is replaced by “[message withheld: possible instruction to the analysis tool]” before Decide, Fill and Verify see the thread. Ordinary requests, pressure and discount asks are not flagged.
+              <b className="text-warn">{tp("safety.guardFlagged", flagged.length)}</b>{" "}
+              {t("safety.guardFlaggedNote")}
             </p>
             <ul className="space-y-2">
               {flagged.map((i) => {
@@ -69,13 +72,13 @@ export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRe
                 const withheld = g!.withheld.includes(i);
                 return (
                   <li key={i} className="rounded-xl border border-line bg-paper px-4 py-3 text-sm">
-                    <p className="text-xs text-muted">{speaker(i)} · message {i + 1} · {withheld ? "withheld from the analysis" : "included by you"}</p>
+                    <p className="text-xs text-muted">{t(withheld ? "safety.withheld" : "safety.included", { speaker: speaker(i), n: i + 1 })}</p>
                     {f?.quotes.map((q, k) => <p key={k} className="mt-1">“{q}”</p>)}
                     <div className="mt-2">
                       {withheld
-                        ? <button onClick={() => onInclude(i)} className="press rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">Include anyway</button>
-                        : <button onClick={() => onWithhold(i)} className="press rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">Withhold again</button>}
-                      <span className="ml-3 text-xs text-muted">Your choice is recorded here. {withheld ? "Including it runs the analysis for that message only." : ""}</span>
+                        ? <button onClick={() => onInclude(i)} className="press rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">{t("safety.includeAnyway")}</button>
+                        : <button onClick={() => onWithhold(i)} className="press rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">{t("safety.withholdAgain")}</button>}
+                      <span className="ml-3 text-xs text-muted">{t("safety.choiceRecorded")}{withheld ? t("safety.includeNote") : ""}</span>
                     </div>
                   </li>
                 );
@@ -87,25 +90,25 @@ export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRe
 
       {/* M12 Compare: promise check */}
       <div className={row} id="promise">
-        <h3 className="flex items-center gap-2 text-sm font-semibold"><ConflictIcon width={18} height={18} className="text-navy" />Promise check: your own messages against the contract</h3>
-        {!analysis.promiseCheck && <p className="mt-1 text-sm text-muted">Not run{recorded ? " in this recording" : ""}: needs the contract and at least one message from you.</p>}
-        {analysis.promiseCheck?.status === "running" && <p role="status" className="mt-1 flex items-center gap-2 text-sm text-muted"><span className="spinner" /> Comparing your messages with the contract…</p>}
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><ConflictIcon width={18} height={18} className="text-navy" />{t("safety.promiseTitle")}</h3>
+        {!analysis.promiseCheck && <p className="mt-1 text-sm text-muted">{t(recorded ? "safety.promiseNotRunRecorded" : "safety.promiseNotRun")}</p>}
+        {analysis.promiseCheck?.status === "running" && <p role="status" className="mt-1 flex items-center gap-2 text-sm text-muted"><span className="spinner" /> {t("safety.promiseRunning")}</p>}
         {analysis.promiseCheck?.status === "failed" && (
-          <p role="alert" className="mt-1 text-sm text-ink"><b className="text-change">The promise check could not run.</b> {analysis.promiseCheck.error}{" "}
-            <button onClick={onRetryPromise} className="font-semibold text-navy underline underline-offset-4">Retry</button></p>
+          <p role="alert" className="mt-1 text-sm text-ink"><b className="text-change">{t("safety.promiseFailed")}</b> {analysis.promiseCheck.error}{" "}
+            <button onClick={onRetryPromise} className="font-semibold text-navy underline underline-offset-4">{t("common.retry")}</button></p>
         )}
         {analysis.promiseCheck?.status === "done" && analysis.promiseCheck.conflicts.length === 0 && (
-          <p className="mt-1 text-sm text-ink/85">No conflicts found in your messages (estimate). This is not a guarantee: read what you promised.</p>
+          <p className="mt-1 text-sm text-ink/85">{t("safety.promiseClean")}</p>
         )}
         {analysis.promiseCheck?.status === "done" && analysis.promiseCheck.conflicts.length > 0 && (
           <ul className="mt-2 space-y-3">
             {analysis.promiseCheck.conflicts.map((c, i) => (
               <li key={i} className="rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm">
-                <p className="t-eyebrow text-warn">Possible conflict, please review</p>
-                <p className="mt-2"><span className="font-semibold">Contract:</span> “{c.contract.quote}”</p>
-                <p className="mt-1 whitespace-pre-wrap"><span className="font-semibold">You wrote:</span> “{c.yours.quote}”</p>
-                <p className="mt-2 text-xs text-muted">A model estimate, not a verdict. The quoted passage can include neighbouring messages.</p>
-                <button onClick={() => onShowSpan(`promise${i}-0:promise`)} className="press mt-2 rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">Show in thread</button>
+                <p className="t-eyebrow text-warn">{t("safety.conflict")}</p>
+                <p className="mt-2"><span className="font-semibold">{t("safety.contractLabel")}</span> “{c.contract.quote}”</p>
+                <p className="mt-1 whitespace-pre-wrap"><span className="font-semibold">{t("safety.youWrote")}</span> “{c.yours.quote}”</p>
+                <p className="mt-2 text-xs text-muted">{t("safety.conflictNote")}</p>
+                <button onClick={() => onShowSpan(`promise${i}-0:promise`)} className="press mt-2 rounded-lg border border-navy/30 bg-card px-3 py-1.5 text-xs font-semibold text-navy shadow-card hover:border-navy">{t("common.showInThread")}</button>
               </li>
             ))}
           </ul>
@@ -114,28 +117,28 @@ export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRe
 
       {/* M13 Inspect: client-supplied scripts */}
       <div className={row} id="scripts">
-        <h3 className="flex items-center gap-2 text-sm font-semibold"><CodeIcon width={18} height={18} className="text-navy" />Client-supplied scripts</h3>
-        {!analysis.scripts && <p className="mt-1 text-sm text-muted">Not run{recorded ? " in this recording" : ""}.</p>}
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><CodeIcon width={18} height={18} className="text-navy" />{t("script.title")}</h3>
+        {!analysis.scripts && <p className="mt-1 text-sm text-muted">{t(recorded ? "safety.notRunRecorded" : "safety.notRun")}</p>}
         {analysis.scripts && analysis.scripts.length === 0 && (
           <>
-            <p className="mt-1 text-sm text-ink/85">No code snippet found in the client’s messages, so no call was made.</p>
-            <p className="mt-1 text-xs text-muted">Looked for: fenced code, {"<script>"} blocks, curl or wget piped to a shell, PowerShell commands, function blocks, and runs of code-like statements (two or more markers such as document.cookie, new Image( or fetch( close together). This is a rule-based check and can miss code, so read anything a client sends you.</p>
+            <p className="mt-1 text-sm text-ink/85">{t("script.none")}</p>
+            <p className="mt-1 text-xs text-muted">{t("script.looked")}</p>
           </>
         )}
         {analysis.scripts && analysis.scripts.length > 0 && (
           <ul className="mt-2 space-y-2">
             {analysis.scripts.map((c, i) => (
               <li key={i} className="rounded-xl border border-line bg-paper px-4 py-3 text-sm">
-                <span className="text-xs text-muted">{analysis.messages[c.messageIndex]?.speaker} · message {c.messageIndex + 1}</span>{" "}
-                {c.status === "running" && <span role="status" className="inline-flex items-center gap-2 text-muted"><span className="spinner" /> checking…</span>}
-                {c.status === "failed" && <span role="alert">could not be checked. <button onClick={() => onRetryScript(i)} className="font-semibold text-navy underline underline-offset-4">Retry</button></span>}
-                {c.status === "done" && c.result && <b>{c.result.risk === "routine" ? "Looks routine" : c.result.risk === "suspicious" ? "Suspicious" : "Harmful"} <span className="font-normal text-muted">(model estimate)</span></b>}
+                <span className="text-xs text-muted">{t("card.msgRef", { speaker: analysis.messages[c.messageIndex]?.speaker ?? "", n: c.messageIndex + 1 })}</span>{" "}
+                {c.status === "running" && <span role="status" className="inline-flex items-center gap-2 text-muted"><span className="spinner" /> {t("script.checking")}</span>}
+                {c.status === "failed" && <span role="alert">{t("script.checkFailed")} <button onClick={() => onRetryScript(i)} className="font-semibold text-navy underline underline-offset-4">{t("common.retry")}</button></span>}
+                {c.status === "done" && c.result && <b>{t(`script.${c.result.risk}` as Key)} <span className="font-normal text-muted">{t("card.modelEstimate")}</span></b>}
               </li>
             ))}
           </ul>
         )}
-        {(analysis.scriptsSkipped ?? 0) > 0 && <p className="mt-2 text-xs text-muted">{analysis.scriptsSkipped} more snippet{analysis.scriptsSkipped === 1 ? " was" : "s were"} not checked (at most 3 per thread, each up to 5,000 characters). Read {analysis.scriptsSkipped === 1 ? "it" : "them"} yourself.</p>}
-        <p className="mt-2 text-xs text-muted">A benign result is not a safety guarantee. Read the code yourself.</p>
+        {(analysis.scriptsSkipped ?? 0) > 0 && <p className="mt-2 text-xs text-muted">{tp("script.skipped", analysis.scriptsSkipped ?? 0)}</p>}
+        <p className="mt-2 text-xs text-muted">{t("script.caveat")}</p>
       </div>
 
       {/* M11 Protect: privacy-safe evidence pack */}
@@ -145,6 +148,7 @@ export function SafetyEvidence({ analysis, recorded, onInclude, onWithhold, onRe
 }
 
 function EvidencePackRow({ analysis, recorded, onMakePack }: { analysis: Analysis; recorded: boolean; onMakePack: (id: string) => void }) {
+  const { t } = useI18n();
   const options = useMemo(() => analysis.items.filter((i) => i.status === "done" && ["needs_change_order", "ask_me", "agreed_extra"].includes(effectiveQueue(i.route, i.decision))), [analysis.items]);
   const [sel, setSel] = useState<string>("");
   const id = options.some((o) => o.id === sel) ? sel : (options[0]?.id ?? "");
@@ -160,33 +164,33 @@ function EvidencePackRow({ analysis, recorded, onMakePack }: { analysis: Analysi
   return (
     <details className="group border-t border-line px-5 py-4 sm:px-6" id="evidence-pack">
       <summary className="flex list-none items-center justify-between gap-3 text-sm font-semibold">
-        <span className="flex items-center gap-2"><PackIcon width={18} height={18} className="text-navy" />Privacy-safe evidence pack</span>
+        <span className="flex items-center gap-2"><PackIcon width={18} height={18} className="text-navy" />{t("pack.title")}</span>
         <span aria-hidden className="text-muted transition-transform group-open:rotate-180">▾</span>
       </summary>
       <div className="mt-3 space-y-3 text-sm">
-        <p className="text-muted">Assembles the request, the verdict and its probabilities, the client’s sentence, the agreement or withdrawal sentence, the governing clause and the change-order draft into one text, then asks Clocked’s Protect endpoint to mask names, emails, phone numbers, addresses and bank or card numbers. Your original text is never changed.</p>
-        {options.length === 0 ? <p className="text-muted">No request in the outside-scope queues yet.</p> : (
+        <p className="text-muted">{t("pack.intro")}</p>
+        {options.length === 0 ? <p className="text-muted">{t("pack.noRequests")}</p> : (
           <>
             <label className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold">Request</span>
+              <span className="font-semibold">{t("pack.request")}</span>
               <select value={id} onChange={(e) => setSel(e.target.value)} className="max-w-full rounded-lg border border-line bg-card px-3 py-1.5 text-sm">
-                {options.map((o) => <option key={o.id} value={o.id}>{QUEUE_LABEL[effectiveQueue(o.route, o.decision) as keyof typeof QUEUE_LABEL]}: {o.text.slice(0, 70)}</option>)}
+                {options.map((o) => <option key={o.id} value={o.id}>{queueLabel(t, effectiveQueue(o.route, o.decision) as Queue)}: {o.text.slice(0, 70)}</option>)}
               </select>
             </label>
-            {!pack && !recorded && <button onClick={() => onMakePack(id)} className="press rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-paper shadow-lift hover:bg-navy/90">Create masked pack (1 Protect call)</button>}
-            {!pack && recorded && <p className="text-muted">No pack was recorded for this request in Demo mode.</p>}
-            {pack?.status === "running" && <p role="status" className="flex items-center gap-2 text-muted"><span className="spinner" /> Masking…</p>}
-            {pack?.status === "failed" && <p role="alert" className="text-ink"><b className="text-change">Masking failed.</b> {pack.error} <button onClick={() => onMakePack(id)} className="font-semibold text-navy underline underline-offset-4">Retry</button></p>}
+            {!pack && !recorded && <button onClick={() => onMakePack(id)} className="press rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-paper shadow-lift hover:bg-navy/90">{t("pack.create")}</button>}
+            {!pack && recorded && <p className="text-muted">{t("pack.noneRecorded")}</p>}
+            {pack?.status === "running" && <p role="status" className="flex items-center gap-2 text-muted"><span className="spinner" /> {t("pack.masking")}</p>}
+            {pack?.status === "failed" && <p role="alert" className="text-ink"><b className="text-change">{t("pack.maskFailed")}</b> {pack.error} <button onClick={() => onMakePack(id)} className="font-semibold text-navy underline underline-offset-4">{t("common.retry")}</button></p>}
             {pack?.status === "done" && (
               <div className="space-y-3">
-                <p className="font-semibold">Found and masked: <span data-pack-count>{describeCounts(pack.counts)}</span></p>
-                <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-paper p-4 font-sans text-[0.9375rem] leading-6" aria-label="Masked evidence pack">{pack.maskedText}</pre>
+                <p className="font-semibold">{t("pack.found")} <span data-pack-count>{describeCountsText(t, pack.counts)}</span></p>
+                <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-paper p-4 font-sans text-[0.9375rem] leading-6" aria-label={t("pack.maskedAria")}>{pack.maskedText}</pre>
                 <div className="flex flex-wrap items-center gap-2">
-                  <CopyButton text={pack.maskedText ?? ""} label="Copy masked text" />
-                  <button onClick={download} className="press rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card hover:border-navy">Download .txt</button>
+                  <CopyButton text={pack.maskedText ?? ""} label={t("pack.copy")} />
+                  <button onClick={download} className="press rounded-xl border border-navy/30 bg-card px-4 py-2 text-sm font-semibold text-navy shadow-card hover:border-navy">{t("pack.download")}</button>
                 </div>
-                <p className="rounded-lg bg-warn-bg px-3 py-2 text-xs text-ink"><b>Detection can miss sensitive data. Review before sharing.</b> The masked copy is for the request “{item?.text}” only.</p>
-                <details className="text-xs text-muted"><summary className="cursor-pointer">Show the original text (not masked, stays on your screen)</summary><pre className="mt-2 whitespace-pre-wrap font-sans text-[0.875rem] leading-6 text-ink">{pack.text}</pre></details>
+                <p className="rounded-lg bg-warn-bg px-3 py-2 text-xs text-ink"><b>{t("pack.warn")}</b> {t("pack.warnFor", { text: item?.text ?? "" })}</p>
+                <details className="text-xs text-muted"><summary className="cursor-pointer">{t("pack.showOriginal")}</summary><pre className="mt-2 whitespace-pre-wrap font-sans text-[0.875rem] leading-6 text-ink">{pack.text}</pre></details>
               </div>
             )}
           </>

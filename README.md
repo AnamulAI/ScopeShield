@@ -69,6 +69,18 @@ ScopeShield uses nine endpoints: Read (Extract, Decide, Fill), Protect (Guard, P
 
 The thread panel in Demo mode can replay the conversation message by message, with a three-dot typing indicator, verdict chips appearing under the client's messages (and a Guard chip on a flagged one), and Play/Pause, Skip and Restart controls. It is **a replay of a recorded run**: the data comes from `public/demo/*.json`, recorded from live Clocked runs on 7 and 8 November 2026, and the page makes no API calls (that includes "Include anyway": its result was recorded in advance). The verdicts shown come from that recorded run, not from anything computed while you watch. With reduced-motion preferences the finished thread is shown and nothing autoplays.
 
+## Bengali interface
+
+The header has a language switch, **EN | বাংলা**. English is the default; the choice is saved in `localStorage` (inside `try/catch`, so the app works if storage is blocked). A link such as `/#lang=bn` opens the Bengali interface directly. This is UI localization only: routing thresholds, the API calls, the Pages Function proxy, the recorded Demo data and the evaluation are unchanged.
+
+- **What is translated:** every label, button, empty state and error message, "How it works", the Scope Health explanation, and a short fixed explanation under each verdict (one template per queue, not model-generated).
+- **How it is written:** natural Bengali as Bangladeshi freelancers write it, mixed with the English words they normally use (client, contract, change order, scope, Demo mode, Copy, thread). Digits and percentages stay Latin (99%). Queue names follow a small glossary, for example "Change order দরকার", "Ask me (আপনি ঠিক করুন)", "Agreed extra (টাকা দিতে রাজি)".
+- **What stays in its original language:** the client's own sentences, the contract clauses, the drafted change-order message and the other text the Clocked models return, and the recorded Demo data. Sample titles stay English; the sample descriptions are translated.
+- **Where the text lives:** `src/i18n/en.ts` and `src/i18n/bn.ts` (one key per string; `{name}` marks a value filled in by the app). A unit test checks that every key exists in both languages, that none is empty, that the placeholders match, and that every key used in the code exists. Font: Noto Sans Bengali, self-hosted, loaded only when Bengali text is on the page.
+- **Limits:** the Bengali wording is a first version for review and may change. The static page description (meta tag) and the masked evidence pack text stay English. The aim in either language is clarity about scope and payment.
+
+![The Bengali interface on a phone screen: hero, mode cards and the start of the results](docs/screenshots/mobile-bengali.png)
+
 ## Run it locally
 
 ```bash
@@ -137,7 +149,7 @@ npx wrangler pages deploy dist --project-name scopeshield --branch main
 | Compare | 2 | 2 | offering excluded work at no cost is flagged; consistent freelancer messages are not |
 | Inspect | 2 | 2 | a routine analytics tag is not flagged harmful; a snippet that sends cookies to an outside address is |
 
-The one failure is real and left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids. One positive and one benign case per endpoint is a thin test: it shows each feature can fire and can stay quiet, not how often it is right (see Limitations). There are also **170 unit tests** in 15 files (routing, thread parsing and Unicode offsets, retry and backoff, the pipeline with mocked calls, the invented-amount check, Verify policy, Guard withholding and offset mapping, snippet detection and Inspect mapping, clause splitting, promise-check mapping, evidence packs, the proxy and its rate limits, replay and chat helpers).
+The one failure is real and left failing on purpose: for the WhatsApp "no extra cost" request the drafted message still opens with "I can certainly", which our rubric forbids. One positive and one benign case per endpoint is a thin test: it shows each feature can fire and can stay quiet, not how often it is right (see Limitations). There are also **187 unit tests** in 16 files (routing, thread parsing and Unicode offsets, retry and backoff, the pipeline with mocked calls, the invented-amount check, Verify policy, Guard withholding and offset mapping, snippet detection and Inspect mapping, the Bengali and English tables, clause splitting, promise-check mapping, evidence packs, the proxy and its rate limits, replay and chat helpers).
 
 ## Credit cost per analysis
 
@@ -194,13 +206,13 @@ Design decision: the application owns the thresholds, not the model. That made t
 
 ## Repository layout
 
-`src/lib` holds the engine (thread parsing, routing, the Clocked client, the pipeline, prompts, checks and Verify policy), `src/components` the UI, `functions/api/clocked/[endpoint].ts` the proxy, `samples/` and `public/demo/` the synthetic threads and their recorded runs, `src/lib/features.ts`, `guard.ts`, `governing.ts`, `protect.ts`, `promise.ts`, `evidencePack.ts` and `snippets.ts` the Guard, Rerank, Protect, Compare and Inspect features, `evals/golden.json` the golden cases, and `scripts/` the smoke test, eval, snapshot, live-run, screenshot and motion-check tools. Design notes (palette, motion rules) are in [docs/design-notes.md](docs/design-notes.md); `docs/demo-script.md` is the shot list for the demo video.
+`src/i18n` holds the English and Bengali interface text, and `src/lib` holds the engine (thread parsing, routing, the Clocked client, the pipeline, prompts, checks and Verify policy), `src/components` the UI, `functions/api/clocked/[endpoint].ts` the proxy, `samples/` and `public/demo/` the synthetic threads and their recorded runs, `src/lib/features.ts`, `guard.ts`, `governing.ts`, `protect.ts`, `promise.ts`, `evidencePack.ts` and `snippets.ts` the Guard, Rerank, Protect, Compare and Inspect features, `evals/golden.json` the golden cases, and `scripts/` the smoke test, eval, snapshot, live-run, screenshot and motion-check tools. Design notes (palette, motion rules) are in [docs/design-notes.md](docs/design-notes.md); `docs/demo-script.md` is the shot list for the demo video.
 
 ## Credits
 
 - **Clocked** (Extract, Decide, Fill, Verify): the API this app is built on. Powered by Clocked.
 - **React**, **Vite**, **Tailwind CSS**, **TypeScript** and **Vitest** (MIT); **Cloudflare Pages**, **Pages Functions** and **Wrangler**; **tsx** for scripts.
-- **Fonts:** [Fraunces](https://github.com/undercasetype/Fraunces) and [Figtree](https://github.com/erikdkennedy/figtree), both under the SIL Open Font License, self-hosted through the `@fontsource-variable` packages.
+- **Fonts:** [Fraunces](https://github.com/undercasetype/Fraunces), [Figtree](https://github.com/erikdkennedy/figtree) and [Noto Sans Bengali](https://github.com/notofonts/bengali), all under the SIL Open Font License, self-hosted through the `@fontsource-variable` packages.
 - Icons, the hero animation and the chat window are original drawings made for this project.
 - Screenshots and the social preview image are generated with Google Chrome in headless mode from this repository's own pages.
 - No code was copied from earlier projects. The repository was started on 7 November 2026 for the Clocked Build Challenge and its full history is public.

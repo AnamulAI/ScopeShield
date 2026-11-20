@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n";
 
 async function copy(text: string) {
   try {
@@ -20,6 +21,7 @@ async function copy(text: string) {
 interface Props { text: string; label: string; blockedReason?: string; primary?: boolean }
 
 export function CopyButton({ text, label, blockedReason, primary }: Props) {
+  const { t: tr } = useI18n();
   const [state, setState] = useState<"idle" | "done" | "fail">("idle");
   const t = useRef<number>(0);
   useEffect(() => () => window.clearTimeout(t.current), []);
@@ -31,7 +33,7 @@ export function CopyButton({ text, label, blockedReason, primary }: Props) {
         className={`rounded-xl px-4 py-2 text-sm font-semibold press disabled:cursor-not-allowed disabled:opacity-40 ${primary ? "bg-navy text-paper shadow-lift hover:bg-navy/90 disabled:shadow-none" : "border border-navy/30 bg-card text-navy shadow-card hover:border-navy"}`}>
         {label}
       </button>
-      <span role="status" className="text-xs text-muted">{state === "done" ? "Copied" : state === "fail" ? "Copy failed. Select the text manually." : ""}</span>
+      <span role="status" className="text-xs text-muted">{state === "done" ? tr("copy.done") : state === "fail" ? tr("copy.fail") : ""}</span>
     </span>
   );
 }

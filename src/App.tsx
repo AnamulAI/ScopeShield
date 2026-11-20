@@ -11,6 +11,9 @@ import { Results } from "./components/Results";
 import { ResultsSkeleton } from "./components/Skeleton";
 import { HeroFlow } from "./components/HeroFlow";
 import { ExternalIcon } from "./components/icons";
+import { LangSwitch } from "./components/LangSwitch";
+import { useI18n, type Key } from "./i18n";
+import { DICTS } from "./i18n/core";
 
 type Mode = "demo" | "live";
 interface DemoIndexEntry { id: string; title: string; blurb: string; recordedAt: string }
@@ -28,6 +31,7 @@ const demoClient = {
 } as unknown as ClockedClient;
 
 export default function App() {
+  const { t, tx } = useI18n();
   const [mode, setMode] = useState<Mode>("demo");
   const [inputs, setInputs] = useState<Inputs>({ contract: "", thread: "", clientName: "" });
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -46,7 +50,7 @@ export default function App() {
 
   // Demo mode: load the recorded runs (static files, no API calls).
   useEffect(() => {
-    fetch("/demo/index.json").then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then(setDemoIndex).catch((e) => setDemoError(`Recorded demo data could not be loaded (${e.message}).`));
+    fetch("/demo/index.json").then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then(setDemoIndex).catch((e) => setDemoError(t("demo.loadError", { detail: e.message })));
   }, []);
   useEffect(() => {
     if (mode !== "demo") return;
@@ -60,7 +64,7 @@ export default function App() {
       setSnap(s);
       setAnalysis(structuredClone(s.analysis));
       setDemoError(null);
-    }).catch((e) => !cancelled && setDemoError(`Recorded demo data could not be loaded (${e.message}).`));
+    }).catch((e) => !cancelled && setDemoError(t("demo.loadError", { detail: e.message })));
     return () => { cancelled = true; };
   }, [mode, demoId]);
 
@@ -130,6 +134,7 @@ export default function App() {
     </button>
   );
 
+  const blurbOf = (d: DemoIndexEntry) => { const k = `sample.${d.id}.blurb` as Key; return k in DICTS.en ? t(k) : d.blurb; };
   const REPO = "https://github.com/AnamulAI/ScopeShield";
   const openHow = () => document.getElementById("how-it-works")?.setAttribute("open", "");
   const goDemo = (e: React.MouseEvent) => {
@@ -142,15 +147,16 @@ export default function App() {
     <>
     <header className="sticky top-0 z-30 border-b border-line bg-paper/95">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <a href="#top" className="flex items-center gap-2.5" aria-label="ScopeShield, back to the top">
+        <a href="#top" className="flex items-center gap-2.5" aria-label={t("nav.homeLabel")}>
           <Shield />
           <span className="hidden font-display text-base leading-none min-[420px]:inline sm:text-lg">ScopeShield</span>
         </a>
-        <nav aria-label="Main" className="flex items-center gap-0.5 whitespace-nowrap text-[0.8125rem] font-semibold sm:gap-2 sm:text-sm">
-          <a href="#demo" onClick={goDemo} className="rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">Demo</a>
-          <a href="#how-it-works" onClick={openHow} className="rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">How it works</a>
-          <a href={REPO} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">GitHub<ExternalIcon width={14} height={14} /><span className="sr-only"> (opens in a new tab)</span></a>
-          <span className="t-eyebrow ml-2 hidden border-l border-line pl-4 text-muted md:inline">Powered by Clocked</span>
+        <nav aria-label={t("nav.main")} className="flex items-center gap-0.5 whitespace-nowrap text-[0.8125rem] font-semibold sm:gap-2 sm:text-sm">
+          <a href="#demo" onClick={goDemo} className="rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">{t("nav.demo")}</a>
+          <a href="#how-it-works" onClick={openHow} className="rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:px-2.5">{t("nav.how")}</a>
+          <a href={REPO} target="_blank" rel="noopener noreferrer" className="hidden items-center gap-1 rounded-lg px-2 py-1.5 text-navy hover:bg-paper-deep sm:inline-flex sm:px-2.5">{t("nav.github")}<ExternalIcon width={14} height={14} /><span className="sr-only">{t("nav.newTab")}</span></a>
+          <LangSwitch />
+          <span className="t-eyebrow ml-2 hidden border-l border-line pl-4 text-muted md:inline">{t("nav.poweredBy")}</span>
         </nav>
       </div>
     </header>
@@ -158,16 +164,16 @@ export default function App() {
 
       <section aria-labelledby="hero" className="grid gap-8 border-b border-line pb-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end lg:gap-12 lg:pb-12">
         <div>
-          <p className="t-eyebrow text-muted">For freelancers and small agencies</p>
-          <h1 id="hero" className="t-display mt-3 max-w-[16ch]">Catch scope creep before it becomes unpaid work.</h1>
+          <p className="t-eyebrow text-muted">{t("hero.eyebrow")}</p>
+          <h1 id="hero" className="t-display mt-3 max-w-[16ch] bn:max-w-[22em]">{t("hero.title")}</h1>
           <p className="mt-4 max-w-xl text-[1.0625rem] leading-7 text-ink/85">
-            “Let me think about it” is not a yes. ScopeShield reads a client thread against your contract, and only counts what the client clearly agreed to.
+            {t("hero.lead")}
           </p>
           <div className="mt-8"><HeroFlow /></div>
         </div>
-        <div role="group" aria-label="Choose a mode" className="flex flex-col gap-3 sm:flex-row">
-          {modeCard("demo", "Demo", "Explore four recorded real results. No setup, no API calls.", "4 samples · 0 credits")}
-          {modeCard("live", "Run live", "Analyse your own contract and thread.", "Your text · uses credits")}
+        <div role="group" aria-label={t("mode.group")} className="flex flex-col gap-3 sm:flex-row">
+          {modeCard("demo", t("mode.demo.title"), t("mode.demo.line"), t("mode.demo.meta"))}
+          {modeCard("live", t("mode.live.title"), t("mode.live.line"), t("mode.live.meta"))}
         </div>
       </section>
 
@@ -176,28 +182,28 @@ export default function App() {
         <div id="demo" className="scroll-mt-20" />
 
         {mode === "demo" ? (
-          <section className="space-y-5" aria-label="Demo mode">
-            <div className="flex min-h-10 flex-wrap items-center gap-3" role="group" aria-label="Sample threads">
-              <span className="t-eyebrow text-muted">Sample thread</span>
+          <section className="space-y-5" aria-label={t("demo.section")}>
+            <div className="flex min-h-10 flex-wrap items-center gap-3" role="group" aria-label={t("demo.samples")}>
+              <span className="t-eyebrow text-muted">{t("demo.sampleEyebrow")}</span>
               {!demoIndex && [112, 128, 120].map((w) => <span key={w} aria-hidden className="skeleton h-10 rounded-full" style={{ width: w }} />)}
               {(demoIndex ?? []).map((d) => (
-                <button key={d.id} onClick={() => setDemoId(d.id)} aria-pressed={demoId === d.id} title={d.blurb}
+                <button key={d.id} onClick={() => setDemoId(d.id)} aria-pressed={demoId === d.id} title={blurbOf(d)}
                   className={`rounded-full border px-4 py-2 text-sm font-semibold press ${demoId === d.id ? "border-navy bg-navy text-paper" : "border-line bg-card text-navy shadow-card hover:border-navy/50"}`}>{d.title}</button>
               ))}
             </div>
-            <p className="min-h-6 max-w-2xl text-[0.9375rem] text-ink/80">{demoIndex?.find((d) => d.id === demoId)?.blurb}</p>
+            <p className="min-h-6 max-w-2xl text-[0.9375rem] text-ink/80">{(() => { const d = demoIndex?.find((x) => x.id === demoId); return d ? blurbOf(d) : ""; })()}</p>
             <div className="flex gap-3 rounded-xl border border-line bg-paper-deep px-4 py-3 text-sm text-ink">
               <span aria-hidden className="mt-0.5 text-navy">●</span>
               <p>
                 {/* The text has the same length before and after the data loads (invisible placeholders), so nothing shifts. */}
-                <b>Recorded from a live Clocked run on <span className={snap ? "" : "invisible"}>{snap?.recordedAt ?? "2026-11-07"}</span>.</b>{" "}
-                <span className={snap ? "" : "invisible"}>Recording it used {snap?.credits.total ?? 167} credits.</span>{" "}
-                Synthetic data, made-up people. Demo mode makes no API calls, so you can click around freely: answer Ask me cards, undo, copy a change order.{" "}
-                <button onClick={() => switchMode("live")} className="font-semibold text-navy underline underline-offset-4">Run live on your own contract and thread →</button>
+                <b>{tx("demo.recorded", { date: <span className={snap ? "" : "invisible"}>{snap?.recordedAt ?? "2026-11-07"}</span> })}</b>{" "}
+                <span className={snap ? "" : "invisible"}>{t("demo.recordedCredits", { n: snap?.credits.total ?? 167 })}</span>{" "}
+                {t("demo.recordedNote")}{" "}
+                <button onClick={() => switchMode("live")} className="font-semibold text-navy underline underline-offset-4">{t("demo.goLive")}</button>
               </p>
             </div>
             {demoError && <p role="alert" className="text-sm text-change">{demoError}</p>}
-            {!snap && !demoError && <ResultsSkeleton label="Loading the recorded run" />}
+            {!snap && !demoError && <ResultsSkeleton label={t("demo.loading")} />}
           </section>
         ) : (
           <InputPanel value={inputs} onChange={setInputs} onAnalyze={run} busy={running} />
@@ -206,8 +212,8 @@ export default function App() {
         {mode === "live" && !analysis && (
           <div className="surface flex flex-col items-center gap-2 border-dashed p-8 text-center">
             <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-paper-deep text-muted">↓</span>
-            <p className="t-h3">Your results will appear here</p>
-            <p className="max-w-md text-sm text-muted">Requests grouped into five queues, with the client’s exact sentence highlighted in the thread. Not ready to spend credits? Try the <button onClick={() => switchMode("demo")} className="font-semibold text-navy underline underline-offset-4">recorded demo</button>.</p>
+            <p className="t-h3">{t("live.emptyTitle")}</p>
+            <p className="max-w-md text-sm text-muted">{tx("live.emptyBody", { demo: <button onClick={() => switchMode("demo")} className="font-semibold text-navy underline underline-offset-4">{t("live.emptyDemoLink")}</button> })}</p>
           </div>
         )}
 
@@ -223,34 +229,34 @@ export default function App() {
         <div className="grid gap-8 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
             <p className="flex items-center gap-2"><Shield /><span className="font-display text-lg">ScopeShield</span></p>
-            <p className="max-w-xs text-muted">Catch scope creep before it becomes unpaid work.</p>
+            <p className="max-w-xs text-muted">{t("footer.tagline")}</p>
           </div>
           <div>
-            <p className="t-eyebrow text-muted">Project</p>
+            <p className="t-eyebrow text-muted">{t("footer.project")}</p>
             <ul className="mt-3 space-y-2">
-              <li><a className="font-semibold text-navy underline underline-offset-4" href={REPO} target="_blank" rel="noopener noreferrer">Repository on GitHub</a></li>
-              <li><a className="font-semibold text-navy underline underline-offset-4" href={`${REPO}#readme`} target="_blank" rel="noopener noreferrer">README</a></li>
-              <li><a className="font-semibold text-navy underline underline-offset-4" href="#how-it-works" onClick={openHow}>How it works</a></li>
+              <li><a className="font-semibold text-navy underline underline-offset-4" href={REPO} target="_blank" rel="noopener noreferrer">{t("footer.repo")}</a></li>
+              <li><a className="font-semibold text-navy underline underline-offset-4" href={`${REPO}#readme`} target="_blank" rel="noopener noreferrer">{t("footer.readme")}</a></li>
+              <li><a className="font-semibold text-navy underline underline-offset-4" href="#how-it-works" onClick={openHow}>{t("nav.how")}</a></li>
             </ul>
           </div>
           <div>
-            <p className="t-eyebrow text-muted">Built by</p>
+            <p className="t-eyebrow text-muted">{t("footer.builtBy")}</p>
             <ul className="mt-3 space-y-2">
               <li>Mohammad Anamul Hoque (AnamDev)</li>
               <li><a className="font-semibold text-navy underline underline-offset-4" href="https://www.anamulhoque.com" target="_blank" rel="noopener noreferrer">anamulhoque.com</a></li>
             </ul>
           </div>
           <div>
-            <p className="t-eyebrow text-muted">Credits</p>
+            <p className="t-eyebrow text-muted">{t("footer.credits")}</p>
             <ul className="mt-3 space-y-2 text-muted">
-              <li>Powered by Clocked</li>
-              <li>Fonts: Fraunces and Figtree (SIL Open Font License)</li>
+              <li>{t("footer.poweredBy")}</li>
+              <li>{t("footer.fonts")}</li>
             </ul>
           </div>
         </div>
         <p className="mt-10 flex flex-wrap justify-between gap-x-6 gap-y-2 border-t border-line pt-5 text-xs text-muted">
-          <span>Sample data is synthetic: made-up people and companies.</span>
-          <span>Built with AI-assisted development (Claude Code).</span>
+          <span>{t("footer.synthetic")}</span>
+          <span>{t("footer.ai")}</span>
         </p>
       </footer>
     </div>
