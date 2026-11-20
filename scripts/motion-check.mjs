@@ -360,7 +360,7 @@ for (const width of [1280, 375]) {
   await load(width, "#lang=bn&sample=bakery&open=1");
   await sleep(500);
   ok((await ev("document.querySelector('#queue-needs_change_order h3').innerText.includes('Change order দরকার')")) === true, `${width}px bn: queue heading follows the glossary`);
-  ok((await ev("document.body.innerText.includes('এই অনুরোধটি contract-এর বাইরে, এবং কেউ টাকা দিতে রাজি হননি।')")) === true, `${width}px bn: static Bengali reason under a needs-change-order verdict`);
+  ok((await ev("document.body.innerText.includes('এই অনুরোধটি contract-এর বাইরে, এবং টাকা দিতে রাজি হওয়ার কোনো প্রমাণ thread-এ পাওয়া যায়নি।')")) === true, `${width}px bn: static Bengali reason under a needs-change-order verdict`);
   ok((await ev("document.fonts.check('16px \"Noto Sans Bengali Variable\"', 'অ')")) === true, `${width}px bn: Noto Sans Bengali is loaded`);
   ok((await ev("document.querySelector('#chat-window [role=log]').innerText.includes('Hi Nila')")) === true, `${width}px bn: the client's own sentences stay in their original language`);
   ok((await ev(apiCalls)) === 0, `${width}px bn: Demo mode made no API calls`);

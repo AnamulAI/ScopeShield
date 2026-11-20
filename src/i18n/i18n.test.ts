@@ -94,7 +94,7 @@ describe("the English text of the engine is unchanged", () => {
   it("Bengali versions of the engine texts are used when the Bengali translator is passed", () => {
     const tBn = (k: Key, v?: Record<string, string | number>) => translate("bn", k, v);
     expect(describeError("network", undefined, tBn).title).toBe(bn["err.network.title"]);
-    expect(reasonText(tBn, route(cases[3]))).toBe("এই অনুরোধটি contract-এর বাইরে, এবং কেউ টাকা দিতে রাজি হননি।");
+    expect(reasonText(tBn, route(cases[3]))).toBe("এই অনুরোধটি contract-এর বাইরে, এবং টাকা দিতে রাজি হওয়ার কোনো প্রমাণ thread-এ পাওয়া যায়নি।");
   });
 });
 
